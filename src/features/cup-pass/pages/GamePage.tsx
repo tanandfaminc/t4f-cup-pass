@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { rankPlayers } from '../lib/gameLogic';
 import { track } from '../lib/analytics';
+import { colors, font, radius, btnBase, wordmark } from '../lib/theme';
 import type { HitEvent } from '../types';
 
 const EVENTS: Array<{ event: HitEvent; label: string; delta: number }> = [
@@ -25,9 +26,9 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 function eventColor(delta: number): string {
-  if (delta > 0) return '#188038';
-  if (delta < 0) return '#c62828';
-  return '#546e7a';
+  if (delta > 0) return colors.positive;
+  if (delta < 0) return colors.negative;
+  return colors.neutral;
 }
 
 function scoreDisplay(score: number): string {
@@ -59,9 +60,11 @@ export default function GamePage() {
   const game = state.game!;
   const { players } = state;
   const currentPlayer = players[game.currentPlayerIndex];
-  const nextPlayer = players[(game.currentPlayerIndex + 1) % players.length];
+  const dirStep = game.rotationDirection === 'left' ? 1 : -1;
+  const nextPlayer = players[(game.currentPlayerIndex + dirStep + players.length) % players.length];
   const ranked = rankPlayers(state);
   const isPaused = game.isPaused;
+  const dirLabel = game.rotationDirection === 'left' ? '← Passing left' : 'Passing right →';
 
   function log(event: HitEvent) {
     actions.logEvent(event);
@@ -79,33 +82,43 @@ export default function GamePage() {
 
   return (
     <main style={s.page}>
-      {/* Header */}
-      <header style={s.header}>
-        <div style={s.headerLeft}>
-          <span style={s.inning}>Inning {game.inning}</span>
-          <span style={s.eventCount}>{game.history.length} plays</span>
-        </div>
-        <span style={s.gameName}>{state.gameName || 'Cup Pass'}</span>
-        <div style={s.headerActions}>
-          <button style={s.headerBtn} onClick={() => actions.nextInning()}>+Inn</button>
-          <button
-            style={{ ...s.headerBtn, background: isPaused ? '#e65100' : '#e0e0e0', color: isPaused ? '#fff' : '#333' }}
-            onClick={() => isPaused ? actions.resume() : actions.pause()}
-          >
-            {isPaused ? '▶ Play' : '⏸ Pause'}
-          </button>
-        </div>
+      {/* T4F Wordmark + Game Name */}
+      <header style={s.topBar}>
+        <p style={wordmark}>T4F Cup Pass</p>
+        {state.gameName && <span style={s.gameName}>{state.gameName}</span>}
       </header>
 
-      {/* Public code badge — shareable */}
-      {state.publicCode && (
-        <div style={s.codeRow}>
-          <p style={s.codeBadge}>Code: <span style={s.codeValue}>{state.publicCode}</span></p>
-          <button style={s.shareBtn} onClick={handleShare}>
-            {copied ? 'Copied!' : 'Share'}
-          </button>
+      {/* Inning + Direction strip */}
+      <div style={s.inningStrip}>
+        <div style={s.inningBadge}>
+          <span style={s.inningLabel}>Inning</span>
+          <span style={s.inningNum}>{game.inning}</span>
         </div>
-      )}
+        <span style={s.dirLabel}>{dirLabel}</span>
+        <div style={s.playsCount}>{game.history.length} plays</div>
+      </div>
+
+      {/* Game controls */}
+      <div style={s.controlRow}>
+        <button style={s.controlBtn} onClick={() => actions.nextInning()}>
+          Next Inning
+        </button>
+        <button
+          style={{
+            ...s.controlBtn,
+            background: isPaused ? colors.warning : colors.surfaceDark,
+            color: isPaused ? colors.white : colors.textPrimary,
+          }}
+          onClick={() => isPaused ? actions.resume() : actions.pause()}
+        >
+          {isPaused ? '▶ Resume' : '⏸ Pause'}
+        </button>
+        {state.publicCode && (
+          <button style={s.shareBtn} onClick={handleShare}>
+            {copied ? 'Copied!' : `Share: ${state.publicCode}`}
+          </button>
+        )}
+      </div>
 
       {/* Pause overlay */}
       {isPaused && (
@@ -125,9 +138,10 @@ export default function GamePage() {
         <p style={s.cupScore}>{scoreDisplay(game.scores[currentPlayer.id])}</p>
       </section>
 
-      {/* Next up indicator — more prominent */}
+      {/* Next up indicator */}
       {!isPaused && (
         <div style={s.nextUpRow}>
+          <span style={s.nextUpArrow}>{game.rotationDirection === 'left' ? '←' : '→'}</span>
           <span style={s.nextUpLabel}>Next up</span>
           <span style={s.nextUpName}>{nextPlayer.name}</span>
           {nextPlayer.seat && <span style={s.nextUpSeat}>{nextPlayer.seat}</span>}
@@ -149,7 +163,7 @@ export default function GamePage() {
         ))}
       </section>
 
-      {/* Undo button */}
+      {/* Undo + History */}
       <div style={s.undoRow}>
         <button
           style={{ ...s.undoBtn, opacity: game.history.length === 0 ? 0.3 : 1 }}
@@ -193,19 +207,21 @@ export default function GamePage() {
         <p style={s.scoreboardTitle}>Scoreboard</p>
         {ranked.map((p, i) => {
           const isCurrent = p.id === currentPlayer.id;
+          const isNext = p.id === nextPlayer.id;
           return (
             <div key={p.id} style={{
               ...s.scoreRow,
-              background: isCurrent ? '#e8f0fe' : 'transparent',
-              border: isCurrent ? '2px solid #1a73e8' : '2px solid transparent',
+              background: isCurrent ? colors.primaryBg : isNext ? '#f0f4f8' : 'transparent',
+              border: isCurrent ? `2px solid ${colors.primary}` : '2px solid transparent',
             }}>
               <span style={s.scoreRank}>{i + 1}</span>
-              <span style={{ ...s.scoreName, color: isCurrent ? '#1a73e8' : '#333' }}>
+              <span style={{ ...s.scoreName, color: isCurrent ? colors.primary : colors.textPrimary }}>
                 {p.name}
                 {isCurrent && <span style={s.cupBadge}> ⚾</span>}
+                {isNext && <span style={s.nextBadge}> next</span>}
               </span>
               {p.seat && <span style={s.scoreSeat}>{p.seat}</span>}
-              <span style={{ ...s.scoreVal, color: p.score > 0 ? '#188038' : p.score < 0 ? '#c62828' : '#333' }}>
+              <span style={{ ...s.scoreVal, color: p.score > 0 ? colors.positive : p.score < 0 ? colors.negative : colors.textPrimary }}>
                 {scoreDisplay(p.score)}
               </span>
             </div>
@@ -219,59 +235,73 @@ export default function GamePage() {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  page: { display: 'flex', flexDirection: 'column', padding: '0.75rem', gap: '0.65rem', minHeight: '100dvh' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  headerLeft: { display: 'flex', flexDirection: 'column', gap: '0.05rem' },
-  inning: { fontSize: '0.9rem', fontWeight: 700, color: '#333' },
-  eventCount: { fontSize: '0.65rem', fontWeight: 600, color: '#999' },
-  gameName: { fontSize: '0.8rem', color: '#888' },
-  headerActions: { display: 'flex', gap: '0.35rem' },
-  headerBtn: { fontSize: '0.75rem', fontWeight: 700, padding: '0.35rem 0.6rem', background: '#e0e0e0', border: 'none', borderRadius: '6px', cursor: 'pointer' },
+  page: { display: 'flex', flexDirection: 'column', padding: '0.75rem', gap: '0.6rem', minHeight: '100dvh', paddingBottom: '1.5rem' },
 
-  codeRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', margin: '-0.3rem 0 0' },
-  codeBadge: { fontSize: '0.7rem', color: '#1a73e8', fontWeight: 700, margin: 0 },
-  codeValue: { fontSize: '0.85rem', letterSpacing: '0.1em' },
-  shareBtn: { fontSize: '0.65rem', fontWeight: 700, padding: '0.2rem 0.5rem', background: '#e8f0fe', color: '#1a73e8', border: '1px solid #1a73e8', borderRadius: '4px', cursor: 'pointer' },
+  topBar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.15rem 0' },
+  gameName: { fontSize: font.sm, color: colors.textMuted, fontWeight: 500 },
 
-  pauseBanner: { background: '#fff3e0', border: '2px solid #e65100', borderRadius: '10px', padding: '1rem', textAlign: 'center' },
-  pauseText: { fontSize: '1.25rem', fontWeight: 700, color: '#e65100', margin: '0 0 0.5rem' },
-  resumeBtn: { padding: '0.6rem 1.5rem', fontSize: '1rem', fontWeight: 700, background: '#e65100', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+  inningStrip: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    background: colors.primaryBg, borderRadius: radius.md, padding: '0.5rem 0.75rem',
+  },
+  inningBadge: { display: 'flex', alignItems: 'baseline', gap: '0.3rem' },
+  inningLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' },
+  inningNum: { fontSize: font.lg, fontWeight: 800, color: colors.primary },
+  dirLabel: { fontSize: font.sm, fontWeight: 700, color: colors.primaryLight },
+  playsCount: { fontSize: font.xs, fontWeight: 600, color: colors.textMuted },
 
-  cupHolder: { background: '#1a73e8', color: '#fff', borderRadius: '14px', padding: '1.25rem 1rem', textAlign: 'center' },
-  cupLabel: { fontSize: '0.7rem', fontWeight: 600, opacity: 0.85, margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  controlRow: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap' },
+  controlBtn: {
+    ...btnBase, fontSize: font.sm, padding: '0.35rem 0.6rem',
+    background: colors.surfaceDark, color: colors.textPrimary, borderRadius: radius.sm,
+  },
+  shareBtn: {
+    ...btnBase, fontSize: font.xs, padding: '0.3rem 0.5rem', marginLeft: 'auto',
+    background: colors.primaryBg, color: colors.primary, border: `1px solid ${colors.primary}40`,
+    borderRadius: radius.sm,
+  },
+
+  pauseBanner: { background: colors.warningBg, border: `2px solid ${colors.warning}`, borderRadius: radius.md, padding: '1rem', textAlign: 'center' },
+  pauseText: { fontSize: font.xl, fontWeight: 700, color: colors.warning, margin: '0 0 0.5rem' },
+  resumeBtn: { ...btnBase, padding: '0.6rem 1.5rem', fontSize: '1rem', background: colors.warning, color: colors.white, borderRadius: radius.md },
+
+  cupHolder: { background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryLight})`, color: colors.white, borderRadius: radius.lg, padding: '1.25rem 1rem', textAlign: 'center' },
+  cupLabel: { fontSize: font.xs, fontWeight: 600, opacity: 0.85, margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.06em' },
   cupName: { fontSize: '2rem', fontWeight: 800, margin: '0 0 0.15rem' },
-  cupSeat: { fontSize: '0.85rem', opacity: 0.85, margin: '0 0 0.35rem' },
+  cupSeat: { fontSize: font.base, opacity: 0.85, margin: '0 0 0.35rem' },
   cupScore: { fontSize: '1.5rem', fontWeight: 700, margin: 0 },
 
-  nextUpRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', background: '#e8f0fe', borderRadius: '8px', padding: '0.45rem 0.75rem' },
-  nextUpLabel: { fontSize: '0.7rem', fontWeight: 700, color: '#5f6368', textTransform: 'uppercase', letterSpacing: '0.04em' },
-  nextUpName: { fontSize: '0.95rem', fontWeight: 700, color: '#1a73e8' },
-  nextUpSeat: { fontSize: '0.75rem', color: '#5f6368' },
+  nextUpRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', background: colors.primaryBg, borderRadius: radius.md, padding: '0.45rem 0.75rem' },
+  nextUpArrow: { fontSize: font.md, fontWeight: 700, color: colors.primary },
+  nextUpLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' },
+  nextUpName: { fontSize: font.md, fontWeight: 700, color: colors.primary },
+  nextUpSeat: { fontSize: font.sm, color: colors.textMuted },
 
-  eventGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.45rem' },
-  eventBtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.1rem', padding: '0.75rem 0.25rem', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#fff', minHeight: '3.2rem' },
-  eventLabel: { fontSize: '0.9rem', fontWeight: 700 },
-  eventDelta: { fontSize: '0.75rem', opacity: 0.85 },
+  eventGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' },
+  eventBtn: { ...btnBase, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.1rem', padding: '0.7rem 0.25rem', borderRadius: radius.md, color: colors.white, minHeight: '3rem' },
+  eventLabel: { fontSize: font.base, fontWeight: 700 },
+  eventDelta: { fontSize: font.sm, opacity: 0.85 },
 
   undoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  undoBtn: { fontSize: '0.8rem', fontWeight: 600, padding: '0.4rem 0.75rem', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer', color: '#555' },
-  historyToggle: { fontSize: '0.8rem', fontWeight: 600, padding: '0.4rem 0.75rem', background: 'none', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer', color: '#1a73e8' },
+  undoBtn: { ...btnBase, fontSize: font.sm, padding: '0.4rem 0.75rem', background: colors.surface, border: `1px solid ${colors.border}`, color: colors.textSecondary, borderRadius: radius.sm },
+  historyToggle: { ...btnBase, fontSize: font.sm, padding: '0.4rem 0.75rem', background: 'none', border: `1px solid ${colors.border}`, color: colors.primary, borderRadius: radius.sm },
 
-  historyPanel: { background: '#fafafa', border: '1px solid #e0e0e0', borderRadius: '10px', padding: '0.5rem', maxHeight: '200px', overflowY: 'auto' },
-  historyEmpty: { fontSize: '0.8rem', color: '#999', textAlign: 'center', margin: '0.5rem 0' },
-  historyRow: { display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.4rem', borderBottom: '1px solid #eee', fontSize: '0.8rem' },
-  historyInning: { color: '#999', minWidth: '2.5rem', fontSize: '0.75rem' },
-  historyName: { flex: 1, fontWeight: 600, color: '#333' },
+  historyPanel: { background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: radius.md, padding: '0.5rem', maxHeight: '200px', overflowY: 'auto' },
+  historyEmpty: { fontSize: font.sm, color: colors.textMuted, textAlign: 'center', margin: '0.5rem 0' },
+  historyRow: { display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.4rem', borderBottom: `1px solid ${colors.border}`, fontSize: font.sm },
+  historyInning: { color: colors.textMuted, minWidth: '2.5rem', fontSize: font.sm },
+  historyName: { flex: 1, fontWeight: 600, color: colors.textPrimary },
   historyEvent: { fontWeight: 600, minWidth: '3.5rem', textAlign: 'right' },
   historyDelta: { fontWeight: 700, minWidth: '1.5rem', textAlign: 'right' },
 
-  scoreboard: { display: 'flex', flexDirection: 'column', gap: '0.2rem', background: '#f5f5f5', borderRadius: '10px', padding: '0.6rem' },
-  scoreboardTitle: { fontSize: '0.7rem', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.2rem', paddingLeft: '0.4rem' },
-  scoreRow: { display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.5rem', borderRadius: '6px' },
-  scoreRank: { fontSize: '0.75rem', color: '#999', minWidth: '1rem' },
-  scoreName: { flex: 1, fontSize: '0.85rem', fontWeight: 600 },
-  cupBadge: { fontSize: '0.7rem' },
-  scoreSeat: { fontSize: '0.7rem', color: '#999' },
-  scoreVal: { fontSize: '0.9rem', fontWeight: 700 },
-  endBtn: { padding: '0.75rem', fontSize: '0.9rem', fontWeight: 700, background: '#c62828', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+  scoreboard: { display: 'flex', flexDirection: 'column', gap: '0.15rem', background: colors.surface, borderRadius: radius.lg, padding: '0.6rem' },
+  scoreboardTitle: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.2rem', paddingLeft: '0.4rem' },
+  scoreRow: { display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.5rem', borderRadius: radius.sm },
+  scoreRank: { fontSize: font.sm, color: colors.textMuted, minWidth: '1rem', fontWeight: 700 },
+  scoreName: { flex: 1, fontSize: font.base, fontWeight: 600 },
+  cupBadge: { fontSize: font.xs },
+  nextBadge: { fontSize: font.xs, color: colors.textMuted, fontWeight: 500, fontStyle: 'italic' },
+  scoreSeat: { fontSize: font.xs, color: colors.textMuted },
+  scoreVal: { fontSize: font.md, fontWeight: 700 },
+  endBtn: { ...btnBase, padding: '0.75rem', fontSize: font.md, background: colors.negative, color: colors.white, borderRadius: radius.md, marginTop: '0.25rem' },
 };
