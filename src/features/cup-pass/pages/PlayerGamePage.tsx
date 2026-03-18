@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { useRealtimeSubscription } from '../lib/supabase/realtime';
 import { rankPlayers } from '../lib/gameLogic';
-import { track } from '../lib/analytics';
 import type { GameContextState } from '../types';
 
 const EVENT_LABELS: Record<string, string> = {
