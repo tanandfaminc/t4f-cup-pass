@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, type ReactNode } from 'react';
-import type { GameContextState, HitEvent, Player, BackendStatus } from '../types';
+import type { GameContextState, HitEvent, Player, BackendStatus, GameRole, RealtimeStatus } from '../types';
 import { initGame, logEvent, nextInning, endGame, undoLastEvent } from './gameLogic';
 import { saveState, loadState, clearState } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
@@ -17,6 +17,7 @@ export type Action =
   | { type: 'RESUME' }
   | { type: 'REMATCH' }
   | { type: 'RESET' }
+  | { type: 'JOIN_GAME'; state: GameContextState; displayName: string }
   | { type: '_HYDRATE'; state: GameContextState }
   // New actions for Supabase integration
   | { type: '_SET_DB_IDS'; dbGameId: string; publicCode: string }
@@ -28,6 +29,7 @@ const INITIAL_STATE: GameContextState = {
   teamName: '',
   players: [],
   game: null,
+  role: 'host',
 };
 
 function reducer(state: GameContextState, action: Action): GameContextState {
@@ -62,6 +64,8 @@ function reducer(state: GameContextState, action: Action): GameContextState {
     case 'RESET':
       clearState();
       return INITIAL_STATE;
+    case 'JOIN_GAME':
+      return { ...action.state, role: 'player', playerDisplayName: action.displayName };
     case '_HYDRATE':
       return action.state;
     case '_SET_DB_IDS':
@@ -103,6 +107,7 @@ interface GameContextValue {
     rematch: () => Promise<void>;
     reset: () => void;
     loadGameByCode: (code: string) => Promise<boolean>;
+    joinGame: (code: string, displayName: string) => Promise<boolean>;
   };
   backendStatus: BackendStatus;
   backendError: string | null;
@@ -236,6 +241,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [sync],
   );
 
+  const joinGame = useCallback(
+    async (code: string, displayName: string): Promise<boolean> => {
+      const result = await sync.loadGame(code);
+      if (result.state) {
+        dispatch({ type: 'JOIN_GAME', state: result.state, displayName });
+        return true;
+      }
+      return false;
+    },
+    [sync],
+  );
+
   const actions = {
     setGameInfo,
     setPlayers,
@@ -249,6 +266,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     rematch,
     reset,
     loadGameByCode,
+    joinGame,
   };
 
   return (

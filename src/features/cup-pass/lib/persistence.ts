@@ -14,7 +14,10 @@ export function loadState(): GameContextState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as GameContextState;
+    const parsed = JSON.parse(raw) as GameContextState;
+    // Ensure role defaults for states saved before Milestone 4
+    if (!parsed.role) parsed.role = 'host';
+    return parsed;
   } catch {
     return null;
   }

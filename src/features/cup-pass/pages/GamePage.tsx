@@ -76,9 +76,24 @@ export default function GamePage() {
         </div>
       </header>
 
-      {/* Public code badge */}
+      {/* Public code badge — shareable */}
       {state.publicCode && (
-        <p style={s.codeBadge}>Code: {state.publicCode}</p>
+        <div style={s.codeRow}>
+          <p style={s.codeBadge}>Code: <span style={s.codeValue}>{state.publicCode}</span></p>
+          <button
+            style={s.shareBtn}
+            onClick={() => {
+              const url = `${window.location.origin}/join/${state.publicCode}`;
+              if (navigator.share) {
+                navigator.share({ title: state.gameName || 'Cup Pass', text: `Join my Cup Pass game! Code: ${state.publicCode}`, url });
+              } else {
+                navigator.clipboard.writeText(url);
+              }
+            }}
+          >
+            Share
+          </button>
+        </div>
       )}
 
       {/* Pause overlay */}
@@ -199,7 +214,10 @@ const s: Record<string, React.CSSProperties> = {
   headerActions: { display: 'flex', gap: '0.35rem' },
   headerBtn: { fontSize: '0.75rem', fontWeight: 700, padding: '0.35rem 0.6rem', background: '#e0e0e0', border: 'none', borderRadius: '6px', cursor: 'pointer' },
 
-  codeBadge: { fontSize: '0.7rem', color: '#1a73e8', fontWeight: 700, margin: '-0.3rem 0 0', textAlign: 'center' },
+  codeRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', margin: '-0.3rem 0 0' },
+  codeBadge: { fontSize: '0.7rem', color: '#1a73e8', fontWeight: 700, margin: 0 },
+  codeValue: { fontSize: '0.85rem', letterSpacing: '0.1em' },
+  shareBtn: { fontSize: '0.65rem', fontWeight: 700, padding: '0.2rem 0.5rem', background: '#e8f0fe', color: '#1a73e8', border: '1px solid #1a73e8', borderRadius: '4px', cursor: 'pointer' },
 
   pauseBanner: { background: '#fff3e0', border: '2px solid #e65100', borderRadius: '10px', padding: '1rem', textAlign: 'center' },
   pauseText: { fontSize: '1.25rem', fontWeight: 700, color: '#e65100', margin: '0 0 0.5rem' },

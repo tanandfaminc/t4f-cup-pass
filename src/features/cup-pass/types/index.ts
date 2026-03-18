@@ -47,7 +47,17 @@ export interface GameContextState {
   dbGameId?: string;
   /** Short public code for sharing */
   publicCode?: string;
+  /** Role of this device — 'host' (default) or 'player' (read-only viewer) */
+  role: GameRole;
+  /** Display name of a joined player (only set when role='player') */
+  playerDisplayName?: string;
 }
+
+/** Role of this device in the game */
+export type GameRole = 'host' | 'player';
 
 /** Backend sync status exposed to UI */
 export type BackendStatus = 'idle' | 'loading' | 'saving' | 'error';
+
+/** Realtime connection status */
+export type RealtimeStatus = 'disconnected' | 'connecting' | 'connected' | 'error';

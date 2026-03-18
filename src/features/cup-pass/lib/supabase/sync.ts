@@ -442,6 +442,7 @@ export function useSupabaseSync() {
         },
         dbGameId: gameRow.id,
         publicCode: gameRow.public_code,
+        role: 'host',
       };
 
       setBackendStatus('idle');

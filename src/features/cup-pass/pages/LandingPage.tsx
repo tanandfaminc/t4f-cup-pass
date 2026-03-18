@@ -33,6 +33,10 @@ export default function LandingPage() {
 
       {isBackendConnected && (
         <>
+          <button style={styles.joinGameBtn} onClick={() => navigate('/join')}>
+            Join a Game
+          </button>
+
           <button style={styles.joinToggle} onClick={() => setShowJoin(!showJoin)}>
             {showJoin ? 'Cancel' : 'Resume a Game'}
           </button>
@@ -82,6 +86,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '1rem',
     fontWeight: 600,
     background: '#1a73e8',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    width: '100%',
+    maxWidth: '320px',
+  },
+  joinGameBtn: {
+    padding: '0.75rem 2rem',
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    background: '#188038',
     color: '#fff',
     border: 'none',
     borderRadius: '8px',
