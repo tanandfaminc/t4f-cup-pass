@@ -4,7 +4,7 @@
  *
  * Listens to:
  *   - cup_games changes (status, inning, holder)
- *   - cup_game_events inserts (new events)
+ *   - cup_game_events inserts/updates (new events, undone)
  *   - cup_game_players changes (score updates)
  *
  * Designed for player (read-only) devices. The host does not need this
@@ -15,6 +15,14 @@ import { supabase, isSupabaseConfigured } from './client';
 import * as repo from './repository';
 import type { GameContextState, Player, PlayEvent, HitEvent, RealtimeStatus } from '../../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+
+// ---------------------------------------------------------------------------
+// Debug logger — developer-focused, prefixed for easy filtering
+// ---------------------------------------------------------------------------
+const DEBUG = true; // flip to false to silence
+function dbg(tag: string, ...args: unknown[]) {
+  if (DEBUG) console.log(`[rt:${tag}]`, ...args);
+}
 
 interface UseRealtimeOptions {
   /** Supabase game ID to subscribe to */
@@ -32,14 +40,25 @@ interface UseRealtimeOptions {
 async function fetchFullGameState(gameId: string): Promise<GameContextState | null> {
   if (!supabase) return null;
 
+  dbg('fetch', 'fetching full game state for', gameId);
+
   const { data: gameRow, error: gErr } = await repo.fetchGameById(gameId);
-  if (gErr || !gameRow) return null;
+  if (gErr || !gameRow) {
+    dbg('fetch', 'game row fetch failed', gErr);
+    return null;
+  }
 
   const { data: gpRows, error: gpErr } = await repo.fetchGamePlayers(gameId);
-  if (gpErr) return null;
+  if (gpErr) {
+    dbg('fetch', 'game players fetch failed', gpErr);
+    return null;
+  }
 
   const { data: events, error: evErr } = await repo.fetchActiveEvents(gameId);
-  if (evErr) return null;
+  if (evErr) {
+    dbg('fetch', 'events fetch failed', evErr);
+    return null;
+  }
 
   // Fetch player display names
   const playerIds = gpRows.map((gp) => gp.player_id);
@@ -86,6 +105,8 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
   const isFinished = gameRow.status === 'finished';
   const isPaused = gameRow.status === 'paused';
 
+  dbg('fetch', `done — ${events.length} events, inning=${gameRow.inning_number}, status=${gameRow.status}`);
+
   return {
     gameName: gameRow.game_name,
     teamName: gameRow.team_name,
@@ -106,6 +127,11 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
   };
 }
 
+/** Polling interval as a safety net for missed realtime events (ms) */
+const POLL_INTERVAL = 10_000;
+/** Debounce delay for realtime-triggered refetches (ms) */
+const DEBOUNCE_MS = 150;
+
 export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseRealtimeOptions) {
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('disconnected');
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -114,24 +140,73 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
 
   // Debounce refetch to avoid hammering on rapid updates
   const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether a fetch is in progress to skip overlapping requests
+  const fetchingRef = useRef(false);
 
-  const refetchState = useCallback((id: string) => {
-    if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
-    refetchTimerRef.current = setTimeout(async () => {
-      const newState = await fetchFullGameState(id);
-      if (newState) {
-        onStateUpdateRef.current(newState);
+  const refetchState = useCallback(
+    (id: string, source: string) => {
+      if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+      refetchTimerRef.current = setTimeout(async () => {
+        if (fetchingRef.current) {
+          dbg('refetch', `skipped (already fetching), source=${source}`);
+          return;
+        }
+        fetchingRef.current = true;
+        dbg('refetch', `start, source=${source}`);
+        try {
+          const newState = await fetchFullGameState(id);
+          if (newState) {
+            dbg('refetch', `success, source=${source}, events=${newState.game?.history.length}`);
+            onStateUpdateRef.current(newState);
+          } else {
+            dbg('refetch', `returned null, source=${source}`);
+          }
+        } catch (err) {
+          dbg('refetch', `error, source=${source}`, err);
+        } finally {
+          fetchingRef.current = false;
+        }
+      }, DEBOUNCE_MS);
+    },
+    [],
+  );
+
+  // Immediate (non-debounced) refetch — used for reconnect and focus recovery
+  const refetchImmediate = useCallback(
+    async (id: string, source: string) => {
+      if (fetchingRef.current) {
+        dbg('refetch-immediate', `skipped (already fetching), source=${source}`);
+        return;
       }
-    }, 150);
-  }, []);
+      fetchingRef.current = true;
+      dbg('refetch-immediate', `start, source=${source}`);
+      try {
+        const newState = await fetchFullGameState(id);
+        if (newState) {
+          dbg('refetch-immediate', `success, source=${source}`);
+          onStateUpdateRef.current(newState);
+        }
+      } catch (err) {
+        dbg('refetch-immediate', `error, source=${source}`, err);
+      } finally {
+        fetchingRef.current = false;
+      }
+    },
+    [],
+  );
 
+  // --- Main subscription effect ---
   useEffect(() => {
     if (!enabled || !gameId || !isSupabaseConfigured() || !supabase) {
+      dbg('sub', 'not starting — enabled=%s, gameId=%s, configured=%s', enabled, gameId, isSupabaseConfigured());
       setRealtimeStatus('disconnected');
       return;
     }
 
+    dbg('sub', `subscribing to game ${gameId}`);
     setRealtimeStatus('connecting');
+
+    let prevStatus: string = '';
 
     const channel = supabase.channel(`game-${gameId}`)
       .on(
@@ -142,7 +217,10 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
           table: 'cup_games',
           filter: `id=eq.${gameId}`,
         },
-        () => refetchState(gameId),
+        (payload) => {
+          dbg('event', 'cup_games change', payload.eventType, payload.new);
+          refetchState(gameId, 'cup_games');
+        },
       )
       .on(
         'postgres_changes',
@@ -152,7 +230,10 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
           table: 'cup_game_events',
           filter: `game_id=eq.${gameId}`,
         },
-        () => refetchState(gameId),
+        (payload) => {
+          dbg('event', 'cup_game_events INSERT', payload.new);
+          refetchState(gameId, 'cup_game_events:INSERT');
+        },
       )
       .on(
         'postgres_changes',
@@ -162,7 +243,10 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
           table: 'cup_game_events',
           filter: `game_id=eq.${gameId}`,
         },
-        () => refetchState(gameId),
+        (payload) => {
+          dbg('event', 'cup_game_events UPDATE', payload.new);
+          refetchState(gameId, 'cup_game_events:UPDATE');
+        },
       )
       .on(
         'postgres_changes',
@@ -172,27 +256,58 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
           table: 'cup_game_players',
           filter: `game_id=eq.${gameId}`,
         },
-        () => refetchState(gameId),
+        (payload) => {
+          dbg('event', 'cup_game_players change', payload.eventType, payload.new);
+          refetchState(gameId, 'cup_game_players');
+        },
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
+        dbg('sub', `status=${status}`, err ? `error=${err}` : '');
+
         if (status === 'SUBSCRIBED') {
           setRealtimeStatus('connected');
+          // If we just recovered from an error/disconnect, do an immediate refetch
+          if (prevStatus === 'CHANNEL_ERROR' || prevStatus === 'CLOSED' || prevStatus === 'TIMED_OUT') {
+            dbg('sub', 'recovered from', prevStatus, '→ immediate refetch');
+            refetchImmediate(gameId, 'reconnect');
+          }
         } else if (status === 'CLOSED') {
           setRealtimeStatus('disconnected');
         } else if (status === 'CHANNEL_ERROR') {
           setRealtimeStatus('error');
+        } else if (status === 'TIMED_OUT') {
+          setRealtimeStatus('error');
         }
+        prevStatus = status;
       });
 
     channelRef.current = channel;
 
+    // --- Polling fallback: refetch every POLL_INTERVAL as a safety net ---
+    const pollTimer = setInterval(() => {
+      dbg('poll', 'periodic refetch');
+      refetchImmediate(gameId, 'poll');
+    }, POLL_INTERVAL);
+
+    // --- Refetch on window focus (catch up after tab was backgrounded) ---
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        dbg('focus', 'tab became visible → refetch');
+        refetchImmediate(gameId, 'focus');
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
+      dbg('sub', 'cleaning up subscription for', gameId);
       if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+      clearInterval(pollTimer);
+      document.removeEventListener('visibilitychange', handleVisibility);
       channel.unsubscribe();
       channelRef.current = null;
       setRealtimeStatus('disconnected');
     };
-  }, [enabled, gameId, refetchState]);
+  }, [enabled, gameId, refetchState, refetchImmediate]);
 
-  return { realtimeStatus };
+  return { realtimeStatus, refetchImmediate };
 }

@@ -68,7 +68,13 @@ function reducer(state: GameContextState, action: Action): GameContextState {
     case 'JOIN_GAME':
       return { ...action.state, role: 'player', playerDisplayName: action.displayName };
     case '_HYDRATE':
-      return action.state;
+      // Preserve player role and display name across hydrations
+      // so realtime updates don't accidentally reset them.
+      return {
+        ...action.state,
+        role: state.role === 'player' ? 'player' : action.state.role,
+        playerDisplayName: state.playerDisplayName ?? action.state.playerDisplayName,
+      };
     case '_SET_DB_IDS':
       return { ...state, dbGameId: action.dbGameId, publicCode: action.publicCode };
     case '_SET_PLAYER_DB_IDS': {
