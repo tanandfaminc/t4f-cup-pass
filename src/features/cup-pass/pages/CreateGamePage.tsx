@@ -1,50 +1,53 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGame } from '../lib/gameContext';
 
 export default function CreateGamePage() {
   const navigate = useNavigate();
+  const { dispatch } = useGame();
+  const [gameName, setGameName] = useState('');
+  const [teamName, setTeamName] = useState('');
+
+  function handleNext() {
+    dispatch({ type: 'SET_GAME_INFO', gameName: gameName.trim(), teamName: teamName.trim() });
+    navigate('/seat-order');
+  }
 
   return (
-    <main style={styles.page}>
-      <h1 style={styles.title}>Create Game</h1>
-      <p style={styles.hint}>Set up your Cup Pass game details.</p>
-      <p style={styles.placeholder}>[Game setup form — coming soon]</p>
-      <button style={styles.button} onClick={() => navigate('/seat-order')}>
-        Next: Set Seat Order
+    <main style={s.page}>
+      <h1 style={s.title}>Create Game</h1>
+
+      <label style={s.label}>
+        Game name (optional)
+        <input
+          style={s.input}
+          value={gameName}
+          onChange={(e) => setGameName(e.target.value)}
+          placeholder="e.g. Row 14 Cup Pass"
+        />
+      </label>
+
+      <label style={s.label}>
+        Team playing today (optional)
+        <input
+          style={s.input}
+          value={teamName}
+          onChange={(e) => setTeamName(e.target.value)}
+          placeholder="e.g. Cubs"
+        />
+      </label>
+
+      <button style={s.btn} onClick={handleNext}>
+        Next: Add Players →
       </button>
     </main>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '1.5rem',
-    gap: '1rem',
-    minHeight: '100dvh',
-  },
-  title: { fontSize: '1.5rem', fontWeight: 700, margin: 0 },
-  hint: { fontSize: '0.9rem', color: '#555', margin: 0 },
-  placeholder: {
-    flex: 1,
-    display: 'flex' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#aaa',
-    fontSize: '0.9rem',
-    border: '1px dashed #ddd',
-    borderRadius: '8px',
-    padding: '2rem',
-    textAlign: 'center' as const,
-  },
-  button: {
-    padding: '0.875rem',
-    fontSize: '1rem',
-    fontWeight: 600,
-    background: '#1a73e8',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-  },
+const s: Record<string, React.CSSProperties> = {
+  page: { display: 'flex', flexDirection: 'column', padding: '1.5rem', gap: '1.25rem', minHeight: '100dvh' },
+  title: { fontSize: '1.5rem', fontWeight: 700 },
+  label: { display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 600, color: '#333' },
+  input: { padding: '0.75rem', fontSize: '1rem', border: '1px solid #ccc', borderRadius: '8px', width: '100%' },
+  btn: { marginTop: 'auto', padding: '0.875rem', fontSize: '1rem', fontWeight: 700, background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
 };

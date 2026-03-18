@@ -16,11 +16,24 @@ export interface Player {
   seat: string;
 }
 
-export interface GameState {
-  id: string;
-  players: Player[];
+export interface PlayEvent {
+  playerId: string;
+  event: HitEvent;
+  delta: number;
+  inning: number;
+}
+
+export interface ActiveGame {
   scores: Record<string, number>; // playerId -> score
   currentPlayerIndex: number;
   inning: number;
-  isActive: boolean;
+  history: PlayEvent[];
+  isFinished: boolean;
+}
+
+export interface GameContextState {
+  gameName: string;
+  teamName: string;
+  players: Player[];
+  game: ActiveGame | null;
 }
