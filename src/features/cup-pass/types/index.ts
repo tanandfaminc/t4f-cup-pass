@@ -29,6 +29,7 @@ export interface ActiveGame {
   inning: number;
   history: PlayEvent[];
   isFinished: boolean;
+  isPaused: boolean;
 }
 
 export interface GameContextState {

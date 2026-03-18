@@ -6,21 +6,25 @@ export default function EndGamePage() {
   const navigate = useNavigate();
   const { state, dispatch } = useGame();
   const ranked = rankPlayers(state);
+  const game = state.game!;
 
-  function handlePlayAgain() {
-    dispatch({ type: 'RESET' });
-    navigate('/create');
+  function handleRematch() {
+    dispatch({ type: 'REMATCH' });
+    navigate('/game');
   }
 
-  if (!state.game) {
-    navigate('/');
-    return null;
+  function handleNewGame() {
+    dispatch({ type: 'RESET' });
+    navigate('/create');
   }
 
   return (
     <main style={s.page}>
       <h1 style={s.title}>Game Over</h1>
       {state.gameName && <p style={s.meta}>{state.gameName}</p>}
+      <p style={s.stats}>
+        {game.history.length} plays · {game.inning} inning{game.inning !== 1 ? 's' : ''}
+      </p>
 
       <ol style={s.list}>
         {ranked.map((p, i) => (
@@ -35,9 +39,14 @@ export default function EndGamePage() {
         ))}
       </ol>
 
-      <button style={s.btn} onClick={handlePlayAgain}>
-        Play Again
-      </button>
+      <div style={s.actions}>
+        <button style={s.rematchBtn} onClick={handleRematch}>
+          Rematch — Same Players
+        </button>
+        <button style={s.newGameBtn} onClick={handleNewGame}>
+          New Game
+        </button>
+      </div>
     </main>
   );
 }
@@ -46,11 +55,14 @@ const s: Record<string, React.CSSProperties> = {
   page: { display: 'flex', flexDirection: 'column', padding: '1.5rem', gap: '1rem', minHeight: '100dvh' },
   title: { fontSize: '2rem', fontWeight: 700 },
   meta: { fontSize: '0.95rem', color: '#555', margin: '-0.5rem 0 0' },
+  stats: { fontSize: '0.8rem', color: '#888', margin: 0 },
   list: { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   item: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', borderRadius: '10px' },
   rank: { fontSize: '1.1rem', minWidth: '1.5rem', textAlign: 'center' },
   name: { flex: 1, fontSize: '1rem', fontWeight: 700 },
   seat: { fontSize: '0.8rem', color: '#777' },
   score: { fontSize: '1.25rem', fontWeight: 700 },
-  btn: { marginTop: 'auto', padding: '0.875rem', fontSize: '1rem', fontWeight: 700, background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+  actions: { marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  rematchBtn: { padding: '0.875rem', fontSize: '1rem', fontWeight: 700, background: '#188038', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+  newGameBtn: { padding: '0.75rem', fontSize: '0.9rem', fontWeight: 600, background: 'none', border: '2px solid #1a73e8', color: '#1a73e8', borderRadius: '8px', cursor: 'pointer' },
 };

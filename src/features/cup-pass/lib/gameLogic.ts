@@ -10,6 +10,7 @@ export function initGame(players: Player[]): ActiveGame {
     inning: 1,
     history: [],
     isFinished: false,
+    isPaused: false,
   };
 }
 
@@ -30,12 +31,30 @@ export function logEvent(
   };
 }
 
+export function undoLastEvent(game: ActiveGame): ActiveGame {
+  if (game.history.length === 0) return game;
+  const last = game.history[game.history.length - 1];
+  const newHistory = game.history.slice(0, -1);
+  // Find the player index that made the last play — they were the current player
+  // before the cup rotated, so we restore currentPlayerIndex to them.
+  // We need to figure out who was current before the rotation. Since logEvent
+  // advances to next, we go back one step.
+  const playerCount = Object.keys(game.scores).length;
+  const prevIndex = (game.currentPlayerIndex - 1 + playerCount) % playerCount;
+  return {
+    ...game,
+    scores: { ...game.scores, [last.playerId]: game.scores[last.playerId] - last.delta },
+    currentPlayerIndex: prevIndex,
+    history: newHistory,
+  };
+}
+
 export function nextInning(game: ActiveGame): ActiveGame {
   return { ...game, inning: game.inning + 1 };
 }
 
 export function endGame(game: ActiveGame): ActiveGame {
-  return { ...game, isFinished: true };
+  return { ...game, isFinished: true, isPaused: false };
 }
 
 /** Returns players sorted by score descending. */

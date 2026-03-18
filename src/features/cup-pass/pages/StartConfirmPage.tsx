@@ -31,6 +31,9 @@ export default function StartConfirmPage() {
       <button style={s.btn} onClick={handleStart}>
         ⚾ Start Game
       </button>
+      <button style={s.backBtn} onClick={() => navigate('/seat-order')}>
+        ← Back to Seat Order
+      </button>
     </main>
   );
 }
@@ -46,4 +49,5 @@ const s: Record<string, React.CSSProperties> = {
   playerName: { fontWeight: 600 },
   seat: { fontSize: '0.85rem', color: '#777' },
   btn: { marginTop: 'auto', padding: '0.875rem', fontSize: '1.1rem', fontWeight: 700, background: '#188038', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+  backBtn: { padding: '0.6rem', fontSize: '0.9rem', fontWeight: 600, background: 'none', border: 'none', color: '#1a73e8', cursor: 'pointer', textAlign: 'center' as const },
 };
