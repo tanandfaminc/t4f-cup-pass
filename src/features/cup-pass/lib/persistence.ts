@@ -17,6 +17,11 @@ export function loadState(): GameContextState | null {
     const parsed = JSON.parse(raw) as GameContextState;
     // Ensure role defaults for states saved before Milestone 4
     if (!parsed.role) parsed.role = 'host';
+    // Ensure rotation defaults for states saved before direction feature
+    if (parsed.game && !parsed.game.rotationDirection) {
+      parsed.game.rotationDirection = 'left';
+      parsed.game.reverseEachInning = true;
+    }
     return parsed;
   } catch {
     return null;

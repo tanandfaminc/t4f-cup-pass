@@ -29,6 +29,9 @@ export interface PlayEvent {
   dbId?: string;
 }
 
+/** Direction the cup passes */
+export type RotationDirection = 'left' | 'right';
+
 export interface ActiveGame {
   scores: Record<string, number>; // playerId -> score
   currentPlayerIndex: number;
@@ -36,6 +39,10 @@ export interface ActiveGame {
   history: PlayEvent[];
   isFinished: boolean;
   isPaused: boolean;
+  /** Current passing direction */
+  rotationDirection: RotationDirection;
+  /** Whether direction flips each inning (default true) */
+  reverseEachInning: boolean;
 }
 
 export interface GameContextState {
