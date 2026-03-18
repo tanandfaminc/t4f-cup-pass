@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { GameContextState, HitEvent, Player, BackendStatus } from '../types';
-import { initGame, logEvent, nextInning, endGame, undoLastEvent } from './gameLogic';
+import { initGame, logEvent, nextInning, prevInning, endGame, undoLastEvent } from './gameLogic';
 import { saveState, loadState, clearState } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
 import { isSupabaseConfigured } from './supabase/client';
@@ -12,6 +12,7 @@ export type Action =
   | { type: 'START_GAME' }
   | { type: 'LOG_EVENT'; event: HitEvent }
   | { type: 'NEXT_INNING' }
+  | { type: 'PREV_INNING' }
   | { type: 'END_GAME' }
   | { type: 'UNDO' }
   | { type: 'PAUSE' }
@@ -47,6 +48,9 @@ function reducer(state: GameContextState, action: Action): GameContextState {
     case 'NEXT_INNING':
       if (!state.game) return state;
       return { ...state, game: nextInning(state.game) };
+    case 'PREV_INNING':
+      if (!state.game) return state;
+      return { ...state, game: prevInning(state.game) };
     case 'END_GAME':
       if (!state.game) return state;
       return { ...state, game: endGame(state.game) };
@@ -108,6 +112,7 @@ interface GameContextValue {
     logEvent: (event: HitEvent) => Promise<void>;
     undo: () => Promise<void>;
     nextInning: () => Promise<void>;
+    prevInning: () => Promise<void>;
     pause: () => Promise<void>;
     resume: () => Promise<void>;
     endGame: () => Promise<void>;
@@ -233,6 +238,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'NEXT_INNING' });
   }, [sync, state]);
 
+  const prevInningAction = useCallback(async () => {
+    if (!requireHost('prevInning')) return;
+    if (state.game) {
+      await sync.syncPrevInning(state.game);
+    }
+    dispatch({ type: 'PREV_INNING' });
+  }, [sync, state]);
+
   const pause = useCallback(async () => {
     if (!requireHost('pause')) return;
     dispatch({ type: 'PAUSE' });
@@ -308,6 +321,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     logEvent: logEventAction,
     undo,
     nextInning: nextInningAction,
+    prevInning: prevInningAction,
     pause,
     resume,
     endGame: endGameAction,
