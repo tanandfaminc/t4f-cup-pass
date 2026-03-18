@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import type { GameContextState, HitEvent, Player, BackendStatus, GameRole, RealtimeStatus } from '../types';
+import type { GameContextState, HitEvent, Player, BackendStatus } from '../types';
 import { initGame, logEvent, nextInning, endGame, undoLastEvent } from './gameLogic';
 import { saveState, loadState, clearState } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
