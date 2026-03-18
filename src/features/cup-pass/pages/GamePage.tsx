@@ -102,8 +102,8 @@ export default function GamePage() {
       <div style={s.controlRow}>
         <button style={s.controlBtn} onClick={() => actions.nextInning()}>
           {game.inningHalf === 'top'
-            ? `→ Bottom ${game.inning}`
-            : `→ Top ${game.inning + 1}`}
+            ? `↓ Bottom ${game.inning}`
+            : `↑ Top ${game.inning + 1}`}
         </button>
         <button
           style={{
