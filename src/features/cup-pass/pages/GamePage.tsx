@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { rankPlayers } from '../lib/gameLogic';
+import { track } from '../lib/analytics';
 import type { HitEvent } from '../types';
 
 const EVENTS: Array<{ event: HitEvent; label: string; delta: number }> = [
@@ -37,6 +38,23 @@ export default function GamePage() {
   const navigate = useNavigate();
   const { state, actions } = useGame();
   const [showHistory, setShowHistory] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(() => {
+    if (!state.publicCode) return;
+    const url = `${window.location.origin}/join/${state.publicCode}`;
+    const text = `Join my Cup Pass game!\nCode: ${state.publicCode}`;
+    if (navigator.share) {
+      navigator.share({ title: state.gameName || 'T4F Cup Pass', text, url });
+      track('share_clicked', { share_method: 'native', game_code: state.publicCode });
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+      track('share_clicked', { share_method: 'clipboard', game_code: state.publicCode });
+    }
+  }, [state.publicCode, state.gameName]);
 
   const game = state.game!;
   const { players } = state;
@@ -63,7 +81,10 @@ export default function GamePage() {
     <main style={s.page}>
       {/* Header */}
       <header style={s.header}>
-        <span style={s.inning}>Inning {game.inning}</span>
+        <div style={s.headerLeft}>
+          <span style={s.inning}>Inning {game.inning}</span>
+          <span style={s.eventCount}>{game.history.length} plays</span>
+        </div>
         <span style={s.gameName}>{state.gameName || 'Cup Pass'}</span>
         <div style={s.headerActions}>
           <button style={s.headerBtn} onClick={() => actions.nextInning()}>+Inn</button>
@@ -80,18 +101,8 @@ export default function GamePage() {
       {state.publicCode && (
         <div style={s.codeRow}>
           <p style={s.codeBadge}>Code: <span style={s.codeValue}>{state.publicCode}</span></p>
-          <button
-            style={s.shareBtn}
-            onClick={() => {
-              const url = `${window.location.origin}/join/${state.publicCode}`;
-              if (navigator.share) {
-                navigator.share({ title: state.gameName || 'Cup Pass', text: `Join my Cup Pass game! Code: ${state.publicCode}`, url });
-              } else {
-                navigator.clipboard.writeText(url);
-              }
-            }}
-          >
-            Share
+          <button style={s.shareBtn} onClick={handleShare}>
+            {copied ? 'Copied!' : 'Share'}
           </button>
         </div>
       )}
@@ -114,12 +125,13 @@ export default function GamePage() {
         <p style={s.cupScore}>{scoreDisplay(game.scores[currentPlayer.id])}</p>
       </section>
 
-      {/* Next up indicator */}
+      {/* Next up indicator — more prominent */}
       {!isPaused && (
-        <p style={s.nextUp}>
-          Next up: <strong>{nextPlayer.name}</strong>
-          {nextPlayer.seat ? ` (${nextPlayer.seat})` : ''}
-        </p>
+        <div style={s.nextUpRow}>
+          <span style={s.nextUpLabel}>Next up</span>
+          <span style={s.nextUpName}>{nextPlayer.name}</span>
+          {nextPlayer.seat && <span style={s.nextUpSeat}>{nextPlayer.seat}</span>}
+        </div>
       )}
 
       {/* Event buttons */}
@@ -209,7 +221,9 @@ export default function GamePage() {
 const s: Record<string, React.CSSProperties> = {
   page: { display: 'flex', flexDirection: 'column', padding: '0.75rem', gap: '0.65rem', minHeight: '100dvh' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  headerLeft: { display: 'flex', flexDirection: 'column', gap: '0.05rem' },
   inning: { fontSize: '0.9rem', fontWeight: 700, color: '#333' },
+  eventCount: { fontSize: '0.65rem', fontWeight: 600, color: '#999' },
   gameName: { fontSize: '0.8rem', color: '#888' },
   headerActions: { display: 'flex', gap: '0.35rem' },
   headerBtn: { fontSize: '0.75rem', fontWeight: 700, padding: '0.35rem 0.6rem', background: '#e0e0e0', border: 'none', borderRadius: '6px', cursor: 'pointer' },
@@ -229,7 +243,10 @@ const s: Record<string, React.CSSProperties> = {
   cupSeat: { fontSize: '0.85rem', opacity: 0.85, margin: '0 0 0.35rem' },
   cupScore: { fontSize: '1.5rem', fontWeight: 700, margin: 0 },
 
-  nextUp: { fontSize: '0.8rem', color: '#555', textAlign: 'center', margin: 0 },
+  nextUpRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', background: '#e8f0fe', borderRadius: '8px', padding: '0.45rem 0.75rem' },
+  nextUpLabel: { fontSize: '0.7rem', fontWeight: 700, color: '#5f6368', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  nextUpName: { fontSize: '0.95rem', fontWeight: 700, color: '#1a73e8' },
+  nextUpSeat: { fontSize: '0.75rem', color: '#5f6368' },
 
   eventGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.45rem' },
   eventBtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.1rem', padding: '0.75rem 0.25rem', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#fff', minHeight: '3.2rem' },

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { useRealtimeSubscription } from '../lib/supabase/realtime';
 import { rankPlayers } from '../lib/gameLogic';
+import { track } from '../lib/analytics';
 import type { GameContextState } from '../types';
 
 const EVENT_LABELS: Record<string, string> = {
@@ -44,15 +45,31 @@ export default function PlayerGamePage() {
     enabled: state.role === 'player' && !!state.dbGameId,
   });
 
+  // Connection status
+  const statusColor = realtimeStatus === 'connected' ? '#188038'
+    : realtimeStatus === 'connecting' ? '#e65100'
+    : realtimeStatus === 'error' ? '#c62828'
+    : '#999';
+  const statusLabel = realtimeStatus === 'connected' ? 'Live'
+    : realtimeStatus === 'connecting' ? 'Reconnecting...'
+    : realtimeStatus === 'error' ? 'Connection lost'
+    : 'Offline';
+
   // Not-found / no-game state
   if (!state.game || !state.dbGameId) {
     return (
       <main style={s.page}>
-        <h2 style={s.title}>Game Not Found</h2>
-        <p style={s.subtitle}>
-          {code ? `No active game found for code "${code}".` : 'No game loaded.'}
-        </p>
-        <button style={s.backBtn} onClick={() => navigate('/join')}>Try Again</button>
+        <div style={s.emptyCard}>
+          <p style={s.emptyIcon}>?</p>
+          <h2 style={s.emptyTitle}>Game Not Found</h2>
+          <p style={s.emptyMsg}>
+            {code
+              ? `We couldn't find an active game for code "${code}". It may have ended or the code may be wrong.`
+              : 'No game is loaded. Ask your host for the join code.'}
+          </p>
+        </div>
+        <button style={s.retryBtn} onClick={() => navigate('/join')}>Try Another Code</button>
+        <button style={s.backBtn} onClick={() => navigate('/')}>Home</button>
       </main>
     );
   }
@@ -63,37 +80,46 @@ export default function PlayerGamePage() {
   const nextPlayer = players[(game.currentPlayerIndex + 1) % players.length];
   const ranked = rankPlayers(state);
 
-  // Connection status indicator
-  const statusColor = realtimeStatus === 'connected' ? '#188038'
-    : realtimeStatus === 'connecting' ? '#e65100'
-    : realtimeStatus === 'error' ? '#c62828'
-    : '#999';
-  const statusLabel = realtimeStatus === 'connected' ? 'Live'
-    : realtimeStatus === 'connecting' ? 'Connecting...'
-    : realtimeStatus === 'error' ? 'Connection error'
-    : 'Offline';
-
   // Build player name lookup for history
   const playerNames: Record<string, string> = {};
   for (const p of players) playerNames[p.id] = p.name;
 
+  // Connection banner for non-connected states
+  const connectionBanner = realtimeStatus === 'connecting' ? (
+    <div style={s.connectionBanner}>
+      <span style={s.spinner} />
+      <span style={s.connectionText}>Reconnecting to game...</span>
+    </div>
+  ) : realtimeStatus === 'error' ? (
+    <div style={{ ...s.connectionBanner, background: '#fbe9e7', borderColor: '#ef9a9a' }}>
+      <span style={{ ...s.connectionText, color: '#c62828' }}>Connection lost — scores may be stale</span>
+    </div>
+  ) : null;
+
   if (game.isFinished) {
+    const winner = ranked[0];
     return (
       <main style={s.page}>
         <header style={s.header}>
           <span style={s.gameName}>{state.gameName || 'Cup Pass'}</span>
           <span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>
         </header>
+        {state.playerDisplayName && (
+          <p style={s.viewerLabel}>Viewing as {state.playerDisplayName}</p>
+        )}
         <section style={s.finishedBanner}>
-          <p style={s.finishedText}>Game Over</p>
-          {ranked.length > 0 && (
-            <p style={s.winnerText}>{ranked[0].name} wins with {scoreDisplay(ranked[0].score)}!</p>
+          <p style={s.finishedLabel}>Game Over</p>
+          {winner && (
+            <p style={s.finishedWinner}>{winner.name} wins with {scoreDisplay(winner.score)}!</p>
           )}
         </section>
         <section style={s.scoreboard}>
           <p style={s.scoreboardTitle}>Final Scores</p>
           {ranked.map((p, i) => (
-            <div key={p.id} style={s.scoreRow}>
+            <div key={p.id} style={{
+              ...s.scoreRow,
+              background: i === 0 ? '#fff8e1' : 'transparent',
+            }}>
               <span style={s.scoreRank}>{i + 1}</span>
               <span style={s.scoreName}>{p.name}</span>
               <span style={{ ...s.scoreVal, color: p.score > 0 ? '#188038' : p.score < 0 ? '#c62828' : '#333' }}>
@@ -102,7 +128,7 @@ export default function PlayerGamePage() {
             </div>
           ))}
         </section>
-        <button style={s.backBtn} onClick={() => { dispatch({ type: 'RESET' }); navigate('/'); }}>Leave</button>
+        <button style={s.leaveBtn} onClick={() => { dispatch({ type: 'RESET' }); navigate('/'); }}>Leave</button>
       </main>
     );
   }
@@ -118,6 +144,9 @@ export default function PlayerGamePage() {
         <span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>
       </header>
 
+      {/* Connection banner */}
+      {connectionBanner}
+
       {/* Viewer label */}
       {state.playerDisplayName && (
         <p style={s.viewerLabel}>Viewing as {state.playerDisplayName}</p>
@@ -127,6 +156,7 @@ export default function PlayerGamePage() {
       {game.isPaused && (
         <section style={s.pauseBanner}>
           <p style={s.pauseText}>Game Paused</p>
+          <p style={s.pauseSubtext}>Waiting for host to resume...</p>
         </section>
       )}
 
@@ -170,7 +200,7 @@ export default function PlayerGamePage() {
       {showHistory && (
         <section style={s.historyPanel}>
           {game.history.length === 0 ? (
-            <p style={s.historyEmpty}>No events yet.</p>
+            <p style={s.historyEmpty}>No events yet. Waiting for host to log plays...</p>
           ) : (
             [...game.history].reverse().map((ev, i) => (
               <div key={game.history.length - 1 - i} style={s.historyRow}>
@@ -222,13 +252,16 @@ const s: Record<string, React.CSSProperties> = {
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   inning: { fontSize: '0.9rem', fontWeight: 700, color: '#333' },
   gameName: { fontSize: '0.8rem', color: '#888' },
-  title: { fontSize: '1.5rem', fontWeight: 700, margin: 0, textAlign: 'center' },
-  subtitle: { fontSize: '0.9rem', color: '#555', textAlign: 'center' },
   statusDot: { fontSize: '0.7rem', fontWeight: 700 },
   viewerLabel: { fontSize: '0.75rem', color: '#1a73e8', fontWeight: 600, textAlign: 'center', margin: '-0.3rem 0 0' },
 
+  connectionBanner: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#fff3e0', border: '1px solid #ffe0b2', borderRadius: '8px', padding: '0.5rem 0.75rem' },
+  connectionText: { fontSize: '0.8rem', fontWeight: 600, color: '#e65100' },
+  spinner: { width: '0.75rem', height: '0.75rem', border: '2px solid #e65100', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' },
+
   pauseBanner: { background: '#fff3e0', border: '2px solid #e65100', borderRadius: '10px', padding: '0.75rem', textAlign: 'center' },
-  pauseText: { fontSize: '1.1rem', fontWeight: 700, color: '#e65100', margin: 0 },
+  pauseText: { fontSize: '1.1rem', fontWeight: 700, color: '#e65100', margin: '0 0 0.15rem' },
+  pauseSubtext: { fontSize: '0.75rem', color: '#bf360c', margin: 0 },
 
   cupHolder: { background: '#1a73e8', color: '#fff', borderRadius: '14px', padding: '1.25rem 1rem', textAlign: 'center' },
   cupLabel: { fontSize: '0.7rem', fontWeight: 600, opacity: 0.85, margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.06em' },
@@ -260,10 +293,16 @@ const s: Record<string, React.CSSProperties> = {
   cupBadge: { fontSize: '0.7rem' },
   scoreVal: { fontSize: '0.9rem', fontWeight: 700 },
 
-  finishedBanner: { background: '#e8f5e9', border: '2px solid #188038', borderRadius: '10px', padding: '1rem', textAlign: 'center' },
-  finishedText: { fontSize: '1.25rem', fontWeight: 700, color: '#188038', margin: '0 0 0.25rem' },
-  winnerText: { fontSize: '1rem', fontWeight: 600, color: '#333', margin: 0 },
+  finishedBanner: { background: 'linear-gradient(135deg, #1a73e8, #1557b0)', color: '#fff', borderRadius: '14px', padding: '1.25rem 1rem', textAlign: 'center' },
+  finishedLabel: { fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.85, margin: '0 0 0.25rem' },
+  finishedWinner: { fontSize: '1.1rem', fontWeight: 700, margin: 0 },
 
   leaveBtn: { padding: '0.65rem', fontSize: '0.85rem', fontWeight: 600, background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer' },
+
+  emptyCard: { background: '#f5f5f5', borderRadius: '14px', padding: '1.5rem', textAlign: 'center', maxWidth: '320px', width: '100%' },
+  emptyIcon: { width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: '#e0e0e0', color: '#666', fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' },
+  emptyTitle: { fontSize: '1.1rem', fontWeight: 700, color: '#333', margin: '0 0 0.5rem' },
+  emptyMsg: { fontSize: '0.85rem', color: '#666', margin: 0, lineHeight: 1.5 },
+  retryBtn: { padding: '0.75rem 1.5rem', fontSize: '0.9rem', fontWeight: 700, background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
   backBtn: { padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, background: 'none', border: 'none', color: '#1a73e8', cursor: 'pointer' },
 };
