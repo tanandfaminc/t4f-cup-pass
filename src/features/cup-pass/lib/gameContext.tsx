@@ -1,9 +1,10 @@
-import { createContext, useContext, useReducer, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { GameContextState, HitEvent, Player, BackendStatus, GameRole, RealtimeStatus } from '../types';
 import { initGame, logEvent, nextInning, endGame, undoLastEvent } from './gameLogic';
 import { saveState, loadState, clearState } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
 import { isSupabaseConfigured } from './supabase/client';
+import { track } from './analytics';
 
 export type Action =
   | { type: 'SET_GAME_INFO'; gameName: string; teamName: string }
@@ -138,56 +139,88 @@ export function GameProvider({ children }: { children: ReactNode }) {
     saveState(state);
   }, [state]);
 
+  // --- Role guard: reject host-only actions when role is 'player' ---
+  function requireHost(actionName: string): boolean {
+    if (state.role === 'player') {
+      if (import.meta.env.DEV) console.warn(`[guard] Blocked player from calling ${actionName}`);
+      return false;
+    }
+    return true;
+  }
+
+  // --- Rapid submission lock ---
+  const submittingRef = useRef(false);
+
   // --- Action helpers that dispatch locally AND sync to Supabase ---
 
   const setGameInfo = useCallback(
     async (gameName: string, teamName: string) => {
+      if (!requireHost('setGameInfo')) return;
+      track('game_create_started');
       dispatch({ type: 'SET_GAME_INFO', gameName, teamName });
       const result = await sync.syncCreateGame(gameName, teamName);
       if (result.dbGameId && result.publicCode) {
         dispatch({ type: '_SET_DB_IDS', dbGameId: result.dbGameId, publicCode: result.publicCode });
+        track('game_created', { game_code: result.publicCode });
       }
     },
-    [sync],
+    [sync, state.role],
   );
 
   const setPlayers = useCallback(
     async (players: Player[]) => {
+      if (!requireHost('setPlayers')) return;
       dispatch({ type: 'SET_PLAYERS', players });
       const result = await sync.syncSetPlayers(players);
       if (result.playerMap) {
         dispatch({ type: '_SET_PLAYER_DB_IDS', playerMap: result.playerMap });
       }
     },
-    [sync],
+    [sync, state.role],
   );
 
   const startGame = useCallback(async () => {
+    if (!requireHost('startGame')) return;
     dispatch({ type: 'START_GAME' });
     await sync.syncStartGame();
-  }, [sync]);
+    track('game_started', { player_count: state.players.length });
+  }, [sync, state.role, state.players.length]);
 
   const logEventAction = useCallback(
     async (event: HitEvent) => {
-      // Capture the current state before dispatch for the sync call
-      const preState = state;
-      dispatch({ type: 'LOG_EVENT', event });
-      const result = await sync.syncLogEvent(preState, event);
-      if (result.eventDbId) {
-        // The event was appended at the end of history
-        const eventIndex = preState.game ? preState.game.history.length : 0;
-        dispatch({ type: '_SET_EVENT_DB_ID', eventIndex, dbId: result.eventDbId });
+      if (!requireHost('logEvent')) return;
+      // Rapid submission guard — block if already processing
+      if (submittingRef.current) return;
+      submittingRef.current = true;
+      try {
+        const preState = state;
+        dispatch({ type: 'LOG_EVENT', event });
+        track('result_submitted', {
+          result_type: event,
+          event_count: (preState.game?.history.length ?? 0) + 1,
+          player_count: state.players.length,
+        });
+        const result = await sync.syncLogEvent(preState, event);
+        if (result.eventDbId) {
+          const eventIndex = preState.game ? preState.game.history.length : 0;
+          dispatch({ type: '_SET_EVENT_DB_ID', eventIndex, dbId: result.eventDbId });
+        }
+      } finally {
+        submittingRef.current = false;
       }
     },
     [sync, state],
   );
 
   const undo = useCallback(async () => {
+    if (!requireHost('undo')) return;
     await sync.syncUndo(state);
     dispatch({ type: 'UNDO' });
+    track('result_undone', { event_count: state.game?.history.length ?? 0 });
   }, [sync, state]);
 
   const nextInningAction = useCallback(async () => {
+    if (!requireHost('nextInning')) return;
     if (state.game) {
       await sync.syncNextInning(state.game.inning);
     }
@@ -195,35 +228,43 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [sync, state]);
 
   const pause = useCallback(async () => {
+    if (!requireHost('pause')) return;
     dispatch({ type: 'PAUSE' });
     await sync.syncPause();
-  }, [sync]);
+    track('game_paused', { event_count: state.game?.history.length ?? 0 });
+  }, [sync, state.role, state.game?.history.length]);
 
   const resume = useCallback(async () => {
+    if (!requireHost('resume')) return;
     dispatch({ type: 'RESUME' });
     await sync.syncResume();
-  }, [sync]);
+    track('game_resumed', { event_count: state.game?.history.length ?? 0 });
+  }, [sync, state.role, state.game?.history.length]);
 
   const endGameAction = useCallback(async () => {
+    if (!requireHost('endGame')) return;
     dispatch({ type: 'END_GAME' });
-    // Need to use current state (pre-dispatch is fine since endGame just sets isFinished)
     await sync.syncEndGame(state);
+    track('game_completed', {
+      player_count: state.players.length,
+      event_count: state.game?.history.length ?? 0,
+    });
   }, [sync, state]);
 
   const rematch = useCallback(async () => {
+    if (!requireHost('rematch')) return;
     dispatch({ type: 'REMATCH' });
-    // For rematch, create a new game in Supabase
     const result = await sync.syncCreateGame(state.gameName, state.teamName);
     if (result.dbGameId && result.publicCode) {
       dispatch({ type: '_SET_DB_IDS', dbGameId: result.dbGameId, publicCode: result.publicCode });
-      // Re-link players to new game
       const pResult = await sync.syncSetPlayers(state.players);
       if (pResult.playerMap) {
         dispatch({ type: '_SET_PLAYER_DB_IDS', playerMap: pResult.playerMap });
       }
       await sync.syncStartGame();
+      track('rematch_started', { player_count: state.players.length, game_code: result.publicCode });
     }
-  }, [sync, state.gameName, state.teamName, state.players]);
+  }, [sync, state.gameName, state.teamName, state.players, state.role]);
 
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' });
@@ -246,6 +287,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const result = await sync.loadGame(code);
       if (result.state) {
         dispatch({ type: 'JOIN_GAME', state: result.state, displayName });
+        track('player_joined', { joined_as_role: 'player', game_code: code });
         return true;
       }
       return false;

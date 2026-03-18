@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
+import { track } from '../lib/analytics';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -8,6 +9,8 @@ export default function LandingPage() {
   const [showJoin, setShowJoin] = useState(false);
   const [code, setCode] = useState('');
   const [joinError, setJoinError] = useState('');
+
+  useEffect(() => { track('landing_viewed'); }, []);
 
   async function handleJoin() {
     const trimmed = code.trim().toUpperCase();
