@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { useRealtimeSubscription } from '../lib/supabase/realtime';
@@ -25,18 +25,44 @@ function scoreDisplay(score: number): string {
 export default function PlayerGamePage() {
   const navigate = useNavigate();
   const { code } = useParams<{ code: string }>();
-  const { state, dispatch } = useGame();
+  const { state, dispatch, actions } = useGame();
   const [showHistory, setShowHistory] = useState(false);
+  const [coldLoading, setColdLoading] = useState(false);
+  const coldLoadAttempted = useRef(false);
+
+  // Cold-start recovery: if we landed on /play/:code with no game state
+  // (e.g. shared link opened on a new device), fetch the game by code.
+  useEffect(() => {
+    if (coldLoadAttempted.current) return;
+    if (state.dbGameId && state.game) return; // already have state
+    if (!code) return;
+
+    coldLoadAttempted.current = true;
+    setColdLoading(true);
+    console.log('[player] cold-start: fetching game by code', code);
+
+    actions
+      .joinGame(code, state.playerDisplayName || 'Spectator')
+      .then((ok) => {
+        if (!ok) {
+          console.log('[player] cold-start: game not found for code', code);
+        } else {
+          console.log('[player] cold-start: game loaded successfully');
+        }
+      })
+      .catch((err) => {
+        console.error('[player] cold-start fetch error', err);
+      })
+      .finally(() => setColdLoading(false));
+  }, [code, state.dbGameId, state.game, state.playerDisplayName, actions]);
 
   // Realtime subscription — updates state when host makes changes
+  // The reducer's _HYDRATE action preserves role & playerDisplayName automatically.
   const onStateUpdate = useCallback(
     (newState: GameContextState) => {
-      dispatch({
-        type: '_HYDRATE',
-        state: { ...newState, role: 'player', playerDisplayName: state.playerDisplayName },
-      });
+      dispatch({ type: '_HYDRATE', state: newState });
     },
-    [dispatch, state.playerDisplayName],
+    [dispatch],
   );
 
   const { realtimeStatus } = useRealtimeSubscription({
@@ -54,6 +80,19 @@ export default function PlayerGamePage() {
     : realtimeStatus === 'connecting' ? 'Reconnecting...'
     : realtimeStatus === 'error' ? 'Connection lost'
     : 'Offline';
+
+  // Loading state during cold-start fetch
+  if (coldLoading) {
+    return (
+      <main style={s.page}>
+        <div style={s.emptyCard}>
+          <p style={s.emptyIcon}>...</p>
+          <h2 style={s.emptyTitle}>Loading Game</h2>
+          <p style={s.emptyMsg}>Connecting to game {code}...</p>
+        </div>
+      </main>
+    );
+  }
 
   // Not-found / no-game state
   if (!state.game || !state.dbGameId) {
