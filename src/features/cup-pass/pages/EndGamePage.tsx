@@ -12,11 +12,6 @@ export default function EndGamePage() {
     navigate('/create');
   }
 
-  if (!state.game) {
-    navigate('/');
-    return null;
-  }
-
   return (
     <main style={s.page}>
       <h1 style={s.title}>Game Over</h1>

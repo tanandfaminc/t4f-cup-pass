@@ -26,12 +26,8 @@ export default function GamePage() {
   const navigate = useNavigate();
   const { state, dispatch } = useGame();
 
-  if (!state.game) {
-    navigate('/');
-    return null;
-  }
-
-  const { game, players } = state;
+  const game = state.game!;
+  const { players } = state;
   const currentPlayer = players[game.currentPlayerIndex];
   const ranked = rankPlayers(state);
 
