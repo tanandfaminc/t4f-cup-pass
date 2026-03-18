@@ -3,18 +3,24 @@ import { useGame } from '../lib/gameContext';
 
 export default function StartConfirmPage() {
   const navigate = useNavigate();
-  const { state, dispatch } = useGame();
+  const { state, actions, backendStatus } = useGame();
 
-  function handleStart() {
-    dispatch({ type: 'START_GAME' });
+  async function handleStart() {
+    await actions.startGame();
     navigate('/game');
   }
+
+  const isSaving = backendStatus === 'saving';
 
   return (
     <main style={s.page}>
       <h1 style={s.title}>Ready to Play?</h1>
 
       {state.gameName && <p style={s.meta}>{state.gameName}{state.teamName ? ` · ${state.teamName}` : ''}</p>}
+
+      {state.publicCode && (
+        <p style={s.code}>Game code: <strong>{state.publicCode}</strong></p>
+      )}
 
       <section style={s.section}>
         <p style={s.sectionLabel}>Cup order ({state.players.length} players)</p>
@@ -28,8 +34,8 @@ export default function StartConfirmPage() {
         </ol>
       </section>
 
-      <button style={s.btn} onClick={handleStart}>
-        ⚾ Start Game
+      <button style={{ ...s.btn, opacity: isSaving ? 0.6 : 1 }} onClick={handleStart} disabled={isSaving}>
+        {isSaving ? 'Starting...' : '⚾ Start Game'}
       </button>
       <button style={s.backBtn} onClick={() => navigate('/seat-order')}>
         ← Back to Seat Order
@@ -42,6 +48,7 @@ const s: Record<string, React.CSSProperties> = {
   page: { display: 'flex', flexDirection: 'column', padding: '1.5rem', gap: '1rem', minHeight: '100dvh' },
   title: { fontSize: '1.5rem', fontWeight: 700 },
   meta: { fontSize: '0.95rem', color: '#555', margin: 0 },
+  code: { fontSize: '0.9rem', color: '#1a73e8', margin: 0, fontWeight: 600 },
   section: { background: '#f5f5f5', borderRadius: '10px', padding: '1rem' },
   sectionLabel: { fontSize: '0.8rem', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.75rem' },
   list: { margin: 0, padding: '0 0 0 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' },

@@ -4,17 +4,17 @@ import { rankPlayers } from '../lib/gameLogic';
 
 export default function EndGamePage() {
   const navigate = useNavigate();
-  const { state, dispatch } = useGame();
+  const { state, actions } = useGame();
   const ranked = rankPlayers(state);
   const game = state.game!;
 
-  function handleRematch() {
-    dispatch({ type: 'REMATCH' });
+  async function handleRematch() {
+    await actions.rematch();
     navigate('/game');
   }
 
   function handleNewGame() {
-    dispatch({ type: 'RESET' });
+    actions.reset();
     navigate('/create');
   }
 

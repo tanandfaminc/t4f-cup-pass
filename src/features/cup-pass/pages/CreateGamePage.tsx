@@ -4,14 +4,16 @@ import { useGame } from '../lib/gameContext';
 
 export default function CreateGamePage() {
   const navigate = useNavigate();
-  const { dispatch } = useGame();
+  const { actions, backendStatus } = useGame();
   const [gameName, setGameName] = useState('');
   const [teamName, setTeamName] = useState('');
 
-  function handleNext() {
-    dispatch({ type: 'SET_GAME_INFO', gameName: gameName.trim(), teamName: teamName.trim() });
+  async function handleNext() {
+    await actions.setGameInfo(gameName.trim(), teamName.trim());
     navigate('/seat-order');
   }
+
+  const isSaving = backendStatus === 'saving';
 
   return (
     <main style={s.page}>
@@ -37,8 +39,8 @@ export default function CreateGamePage() {
         />
       </label>
 
-      <button style={s.btn} onClick={handleNext}>
-        Next: Add Players →
+      <button style={{ ...s.btn, opacity: isSaving ? 0.6 : 1 }} onClick={handleNext} disabled={isSaving}>
+        {isSaving ? 'Creating...' : 'Next: Add Players →'}
       </button>
     </main>
   );

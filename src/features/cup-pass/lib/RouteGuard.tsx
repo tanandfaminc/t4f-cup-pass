@@ -10,7 +10,6 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
   const { state } = useGame();
   const { pathname } = useLocation();
 
-  const hasGameInfo = state.gameName !== '' || state.teamName !== '';
   const hasPlayers = state.players.length >= 2;
   const hasActiveGame = state.game !== null && !state.game.isFinished;
   const hasFinishedGame = state.game !== null && state.game.isFinished;

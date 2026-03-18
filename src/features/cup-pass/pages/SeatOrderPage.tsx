@@ -7,7 +7,7 @@ let nextId = 1;
 
 export default function SeatOrderPage() {
   const navigate = useNavigate();
-  const { dispatch } = useGame();
+  const { actions, backendStatus } = useGame();
   const [players, setPlayers] = useState<Player[]>([]);
   const [name, setName] = useState('');
   const [seat, setSeat] = useState('');
@@ -41,13 +41,14 @@ export default function SeatOrderPage() {
     setPlayers(next);
   }
 
-  function handleNext() {
+  async function handleNext() {
     if (players.length < 2) return;
-    dispatch({ type: 'SET_PLAYERS', players });
+    await actions.setPlayers(players);
     navigate('/start');
   }
 
   const canContinue = players.length >= 2;
+  const isSaving = backendStatus === 'saving';
 
   return (
     <main style={s.page}>
@@ -95,11 +96,11 @@ export default function SeatOrderPage() {
       )}
 
       <button
-        style={{ ...s.btn, opacity: canContinue ? 1 : 0.4 }}
+        style={{ ...s.btn, opacity: canContinue && !isSaving ? 1 : 0.4 }}
         onClick={handleNext}
-        disabled={!canContinue}
+        disabled={!canContinue || isSaving}
       >
-        Next: Review & Start →
+        {isSaving ? 'Saving...' : 'Next: Review & Start →'}
       </button>
     </main>
   );

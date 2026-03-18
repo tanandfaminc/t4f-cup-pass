@@ -35,7 +35,7 @@ function scoreDisplay(score: number): string {
 
 export default function GamePage() {
   const navigate = useNavigate();
-  const { state, dispatch } = useGame();
+  const { state, actions } = useGame();
   const [showHistory, setShowHistory] = useState(false);
 
   const game = state.game!;
@@ -46,12 +46,12 @@ export default function GamePage() {
   const isPaused = game.isPaused;
 
   function log(event: HitEvent) {
-    dispatch({ type: 'LOG_EVENT', event });
+    actions.logEvent(event);
   }
 
-  function handleEnd() {
+  async function handleEnd() {
     if (!window.confirm('End the game now?')) return;
-    dispatch({ type: 'END_GAME' });
+    await actions.endGame();
     navigate('/end');
   }
 
@@ -66,21 +66,26 @@ export default function GamePage() {
         <span style={s.inning}>Inning {game.inning}</span>
         <span style={s.gameName}>{state.gameName || 'Cup Pass'}</span>
         <div style={s.headerActions}>
-          <button style={s.headerBtn} onClick={() => dispatch({ type: 'NEXT_INNING' })}>+Inn</button>
+          <button style={s.headerBtn} onClick={() => actions.nextInning()}>+Inn</button>
           <button
             style={{ ...s.headerBtn, background: isPaused ? '#e65100' : '#e0e0e0', color: isPaused ? '#fff' : '#333' }}
-            onClick={() => dispatch({ type: isPaused ? 'RESUME' : 'PAUSE' })}
+            onClick={() => isPaused ? actions.resume() : actions.pause()}
           >
             {isPaused ? '▶ Play' : '⏸ Pause'}
           </button>
         </div>
       </header>
 
+      {/* Public code badge */}
+      {state.publicCode && (
+        <p style={s.codeBadge}>Code: {state.publicCode}</p>
+      )}
+
       {/* Pause overlay */}
       {isPaused && (
         <section style={s.pauseBanner}>
           <p style={s.pauseText}>Game Paused</p>
-          <button style={s.resumeBtn} onClick={() => dispatch({ type: 'RESUME' })}>
+          <button style={s.resumeBtn} onClick={() => actions.resume()}>
             ▶ Resume Game
           </button>
         </section>
@@ -121,7 +126,7 @@ export default function GamePage() {
       <div style={s.undoRow}>
         <button
           style={{ ...s.undoBtn, opacity: game.history.length === 0 ? 0.3 : 1 }}
-          onClick={() => dispatch({ type: 'UNDO' })}
+          onClick={() => actions.undo()}
           disabled={game.history.length === 0}
         >
           ↩ Undo Last
@@ -193,6 +198,8 @@ const s: Record<string, React.CSSProperties> = {
   gameName: { fontSize: '0.8rem', color: '#888' },
   headerActions: { display: 'flex', gap: '0.35rem' },
   headerBtn: { fontSize: '0.75rem', fontWeight: 700, padding: '0.35rem 0.6rem', background: '#e0e0e0', border: 'none', borderRadius: '6px', cursor: 'pointer' },
+
+  codeBadge: { fontSize: '0.7rem', color: '#1a73e8', fontWeight: 700, margin: '-0.3rem 0 0', textAlign: 'center' },
 
   pauseBanner: { background: '#fff3e0', border: '2px solid #e65100', borderRadius: '10px', padding: '1rem', textAlign: 'center' },
   pauseText: { fontSize: '1.25rem', fontWeight: 700, color: '#e65100', margin: '0 0 0.5rem' },
