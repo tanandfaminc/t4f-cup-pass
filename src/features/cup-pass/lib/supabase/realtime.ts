@@ -97,6 +97,8 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
       history,
       isFinished,
       isPaused,
+      rotationDirection: 'left',
+      reverseEachInning: true,
     },
     dbGameId: gameRow.id,
     publicCode: gameRow.public_code,

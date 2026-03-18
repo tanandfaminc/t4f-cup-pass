@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { track } from '../lib/analytics';
+import { colors, font, radius, btnBase, btnPrimary } from '../lib/theme';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -27,129 +28,84 @@ export default function LandingPage() {
   const isLoading = backendStatus === 'loading';
 
   return (
-    <main style={styles.page}>
-      <h1 style={styles.title}>T4F Cup Pass</h1>
-      <p style={styles.subtitle}>A free social baseball game for fans at the ballpark.</p>
-      <button style={styles.button} onClick={() => navigate('/create')}>
-        Start a Game
-      </button>
+    <main style={s.page}>
+      {/* T4F Branding */}
+      <div style={s.brand}>
+        <div style={s.logoMark}>⚾</div>
+        <h1 style={s.title}>T4F Cup Pass</h1>
+        <p style={s.tagline}>Tickets 4 Fans</p>
+      </div>
 
-      {isBackendConnected && (
-        <>
-          <button style={styles.joinGameBtn} onClick={() => navigate('/join')}>
-            Join a Game
-          </button>
+      <p style={s.subtitle}>A free social baseball game for fans at the ballpark.</p>
 
-          <button style={styles.joinToggle} onClick={() => setShowJoin(!showJoin)}>
-            {showJoin ? 'Cancel' : 'Resume a Game'}
-          </button>
+      <div style={s.actions}>
+        <button style={s.primaryBtn} onClick={() => navigate('/create')}>
+          Start a Game
+        </button>
 
-          {showJoin && (
-            <div style={styles.joinBox}>
-              <input
-                style={styles.codeInput}
-                placeholder="Enter game code"
-                value={code}
-                onChange={(e) => { setCode(e.target.value); if (joinError) setJoinError(''); }}
-                onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-                maxLength={8}
-              />
-              <button
-                style={{ ...styles.joinBtn, opacity: isLoading ? 0.6 : 1 }}
-                onClick={handleJoin}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Loading...' : 'Go'}
-              </button>
-              {joinError && <p style={styles.joinError}>{joinError}</p>}
-            </div>
-          )}
-        </>
-      )}
+        {isBackendConnected && (
+          <>
+            <button style={s.joinBtn} onClick={() => navigate('/join')}>
+              Join a Game
+            </button>
+
+            <button style={s.linkBtn} onClick={() => setShowJoin(!showJoin)}>
+              {showJoin ? 'Cancel' : 'Resume a Game'}
+            </button>
+
+            {showJoin && (
+              <div style={s.joinBox}>
+                <input
+                  style={s.codeInput}
+                  placeholder="Enter game code"
+                  value={code}
+                  onChange={(e) => { setCode(e.target.value); if (joinError) setJoinError(''); }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+                  maxLength={8}
+                />
+                <button
+                  style={{ ...s.goBtn, opacity: isLoading ? 0.6 : 1 }}
+                  onClick={handleJoin}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Loading...' : 'Go'}
+                </button>
+                {joinError && <p style={s.joinError}>{joinError}</p>}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <p style={s.footer}>Free to play. No bets. No MLB data.</p>
     </main>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const s: Record<string, React.CSSProperties> = {
   page: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100dvh',
-    padding: '1.5rem',
-    gap: '1rem',
-    textAlign: 'center',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    minHeight: '100dvh', padding: '1.5rem', gap: '0.75rem', textAlign: 'center',
   },
-  title: { fontSize: '2rem', fontWeight: 700, margin: 0 },
-  subtitle: { fontSize: '1rem', color: '#555', margin: 0, maxWidth: '280px' },
-  button: {
-    marginTop: '1rem',
-    padding: '0.875rem 2rem',
-    fontSize: '1rem',
-    fontWeight: 600,
-    background: '#1a73e8',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    width: '100%',
-    maxWidth: '320px',
-  },
-  joinGameBtn: {
-    padding: '0.75rem 2rem',
-    fontSize: '0.95rem',
-    fontWeight: 600,
-    background: '#188038',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    width: '100%',
-    maxWidth: '320px',
-  },
-  joinToggle: {
-    padding: '0.5rem 1rem',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    background: 'none',
-    border: 'none',
-    color: '#1a73e8',
-    cursor: 'pointer',
-  },
-  joinBox: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-    width: '100%',
-    maxWidth: '320px',
-    alignItems: 'center',
-  },
+  brand: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' },
+  logoMark: { fontSize: '2.5rem', marginBottom: '0.25rem' },
+  title: { fontSize: '1.75rem', fontWeight: 800, color: colors.primary, margin: 0 },
+  tagline: { fontSize: font.xs, fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.15em', margin: 0 },
+  subtitle: { fontSize: font.md, color: colors.textSecondary, margin: 0, maxWidth: '280px' },
+
+  actions: { display: 'flex', flexDirection: 'column', gap: '0.6rem', width: '100%', maxWidth: '320px', marginTop: '0.5rem' },
+  primaryBtn: { ...btnPrimary, width: '100%' },
+  joinBtn: { ...btnBase, padding: '0.75rem', fontSize: font.md, background: colors.positive, color: colors.white, borderRadius: radius.md, width: '100%' },
+  linkBtn: { ...btnBase, padding: '0.5rem', fontSize: font.base, background: 'none', color: colors.primary },
+
+  joinBox: { display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', alignItems: 'center' },
   codeInput: {
-    padding: '0.75rem',
-    fontSize: '1.25rem',
-    textAlign: 'center',
-    letterSpacing: '0.15em',
-    fontWeight: 700,
-    border: '2px solid #ccc',
-    borderRadius: '8px',
-    width: '100%',
-    textTransform: 'uppercase',
+    padding: '0.75rem', fontSize: '1.25rem', textAlign: 'center', letterSpacing: '0.15em',
+    fontWeight: 700, border: `2px solid ${colors.border}`, borderRadius: radius.md,
+    width: '100%', textTransform: 'uppercase', fontFamily: 'inherit',
   },
-  joinBtn: {
-    padding: '0.6rem 2rem',
-    fontSize: '0.95rem',
-    fontWeight: 700,
-    background: '#188038',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-  },
-  joinError: {
-    fontSize: '0.8rem',
-    color: '#c62828',
-    fontWeight: 600,
-    margin: 0,
-  },
+  goBtn: { ...btnBase, padding: '0.6rem 2rem', fontSize: font.md, background: colors.positive, color: colors.white, borderRadius: radius.md },
+  joinError: { fontSize: font.sm, color: colors.negative, fontWeight: 600, margin: 0 },
+
+  footer: { fontSize: font.xs, color: colors.textMuted, marginTop: 'auto', paddingTop: '1rem' },
 };
