@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { GameProvider } from './features/cup-pass/lib/gameContext';
 import RouteGuard from './features/cup-pass/lib/RouteGuard';
+import BackendStatusBar from './features/cup-pass/lib/BackendStatusBar';
 import LandingPage from './features/cup-pass/pages/LandingPage';
 import CreateGamePage from './features/cup-pass/pages/CreateGamePage';
 import SeatOrderPage from './features/cup-pass/pages/SeatOrderPage';
@@ -12,6 +13,7 @@ export default function App() {
   return (
     <GameProvider>
       <BrowserRouter>
+        <BackendStatusBar />
         <RouteGuard>
           <Routes>
             <Route path="/" element={<LandingPage />} />
