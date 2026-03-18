@@ -91,7 +91,7 @@ export default function GamePage() {
       {/* Inning + Direction strip */}
       <div style={s.inningStrip}>
         <div style={s.inningBadge}>
-          <span style={s.inningLabel}>Inning</span>
+          <span style={s.inningLabel}>{game.inningHalf === 'top' ? 'Top' : 'Bottom'}</span>
           <span style={s.inningNum}>{game.inning}</span>
         </div>
         <span style={s.dirLabel}>{dirLabel}</span>
@@ -101,7 +101,9 @@ export default function GamePage() {
       {/* Game controls */}
       <div style={s.controlRow}>
         <button style={s.controlBtn} onClick={() => actions.nextInning()}>
-          Next Inning
+          {game.inningHalf === 'top'
+            ? `→ Bottom ${game.inning}`
+            : `→ Top ${game.inning + 1}`}
         </button>
         <button
           style={{
@@ -188,7 +190,7 @@ export default function GamePage() {
           ) : (
             [...game.history].reverse().map((ev, i) => (
               <div key={game.history.length - 1 - i} style={s.historyRow}>
-                <span style={s.historyInning}>Inn {ev.inning}</span>
+                <span style={s.historyInning}>{ev.inningHalf === 'top' ? 'T' : 'B'}{ev.inning}</span>
                 <span style={s.historyName}>{playerNames[ev.playerId]}</span>
                 <span style={{ ...s.historyEvent, color: eventColor(ev.delta) }}>
                   {EVENT_LABELS[ev.event] || ev.event}

@@ -402,6 +402,7 @@ export function useSupabaseSync() {
           event: ev.result_type as HitEvent,
           delta: ev.score_delta,
           inning: ev.inning_number,
+          inningHalf: 'top' as const,
           dbId: ev.id,
         };
       });
@@ -436,6 +437,7 @@ export function useSupabaseSync() {
           scores: eventScores,
           currentPlayerIndex: gameRow.current_holder_index,
           inning: gameRow.inning_number,
+          inningHalf: 'top' as const,
           history,
           isFinished,
           isPaused,

@@ -177,7 +177,7 @@ export default function PlayerGamePage() {
       {/* Header */}
       <header style={s.header}>
         <div>
-          <span style={s.inning}>Inning {game.inning}</span>
+          <span style={s.inning}>{game.inningHalf === 'top' ? 'Top' : 'Bottom'} {game.inning}</span>
           <span style={s.gameName}> — {state.gameName || 'Cup Pass'}</span>
         </div>
         <span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>
@@ -243,7 +243,7 @@ export default function PlayerGamePage() {
           ) : (
             [...game.history].reverse().map((ev, i) => (
               <div key={game.history.length - 1 - i} style={s.historyRow}>
-                <span style={s.historyInning}>Inn {ev.inning}</span>
+                <span style={s.historyInning}>{ev.inningHalf === 'top' ? 'T' : 'B'}{ev.inning}</span>
                 <span style={s.historyName}>{playerNames[ev.playerId]}</span>
                 <span style={{ ...s.historyEvent, color: eventColor(ev.delta) }}>
                   {EVENT_LABELS[ev.event] || ev.event}

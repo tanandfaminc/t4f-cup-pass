@@ -11,6 +11,17 @@ function dirStep(dir: RotationDirection): 1 | -1 {
   return dir === 'left' ? 1 : -1;
 }
 
+/**
+ * Derive rotation direction from inning number.
+ * The game always starts at 'left' in inning 1.
+ * Direction flips once per inning number change (Bottom→Top).
+ * So: inning 1 → 'left', inning 2 → 'right', inning 3 → 'left', ...
+ */
+function deriveRotationDirection(inning: number, reverseEachInning: boolean): RotationDirection {
+  if (!reverseEachInning) return 'left';
+  return (inning - 1) % 2 === 0 ? 'left' : 'right';
+}
+
 export function initGame(players: Player[]): ActiveGame {
   const scores: Record<string, number> = {};
   for (const p of players) scores[p.id] = 0;
@@ -18,6 +29,7 @@ export function initGame(players: Player[]): ActiveGame {
     scores,
     currentPlayerIndex: 0,
     inning: 1,
+    inningHalf: 'top',
     history: [],
     isFinished: false,
     isPaused: false,
@@ -33,7 +45,13 @@ export function logEvent(
 ): ActiveGame {
   const player = players[game.currentPlayerIndex];
   const delta = SCORE_MAP[event];
-  const entry: PlayEvent = { playerId: player.id, event, delta, inning: game.inning };
+  const entry: PlayEvent = {
+    playerId: player.id,
+    event,
+    delta,
+    inning: game.inning,
+    inningHalf: game.inningHalf,
+  };
   const step = dirStep(game.rotationDirection);
   const nextIndex = (game.currentPlayerIndex + step + players.length) % players.length;
   return {
@@ -52,19 +70,38 @@ export function undoLastEvent(game: ActiveGame): ActiveGame {
   const step = dirStep(game.rotationDirection);
   const playerCount = Object.keys(game.scores).length;
   const prevIndex = (game.currentPlayerIndex - step + playerCount) % playerCount;
+
+  // Restore inning/half from the last remaining event, or default to Top 1
+  const prevEvent = newHistory.length > 0 ? newHistory[newHistory.length - 1] : null;
+  const restoredInning = prevEvent ? prevEvent.inning : 1;
+  const restoredHalf = prevEvent ? prevEvent.inningHalf : 'top';
+  const restoredDirection = deriveRotationDirection(restoredInning, game.reverseEachInning);
+
   return {
     ...game,
     scores: { ...game.scores, [last.playerId]: game.scores[last.playerId] - last.delta },
     currentPlayerIndex: prevIndex,
     history: newHistory,
+    inning: restoredInning,
+    inningHalf: restoredHalf,
+    rotationDirection: restoredDirection,
   };
 }
 
+/**
+ * Advance to the next half-inning.
+ * Top N → Bottom N (same inning number, direction unchanged).
+ * Bottom N → Top N+1 (inning increments, direction flips if reverseEachInning).
+ */
 export function nextInning(game: ActiveGame): ActiveGame {
+  if (game.inningHalf === 'top') {
+    return { ...game, inningHalf: 'bottom' };
+  }
+  const newInning = game.inning + 1;
   const newDirection = game.reverseEachInning
     ? flipDirection(game.rotationDirection)
     : game.rotationDirection;
-  return { ...game, inning: game.inning + 1, rotationDirection: newDirection };
+  return { ...game, inning: newInning, inningHalf: 'top', rotationDirection: newDirection };
 }
 
 export function endGame(game: ActiveGame): ActiveGame {
