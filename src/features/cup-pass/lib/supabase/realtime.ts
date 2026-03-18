@@ -219,7 +219,7 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
         },
         (payload) => {
           dbg('event', 'cup_games change', payload.eventType, payload.new);
-          refetchState(gameId, 'cup_games');
+          refetchState(gameId!, 'cup_games');
         },
       )
       .on(
@@ -232,7 +232,7 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
         },
         (payload) => {
           dbg('event', 'cup_game_events INSERT', payload.new);
-          refetchState(gameId, 'cup_game_events:INSERT');
+          refetchState(gameId!, 'cup_game_events:INSERT');
         },
       )
       .on(
@@ -245,7 +245,7 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
         },
         (payload) => {
           dbg('event', 'cup_game_events UPDATE', payload.new);
-          refetchState(gameId, 'cup_game_events:UPDATE');
+          refetchState(gameId!, 'cup_game_events:UPDATE');
         },
       )
       .on(
@@ -258,7 +258,7 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
         },
         (payload) => {
           dbg('event', 'cup_game_players change', payload.eventType, payload.new);
-          refetchState(gameId, 'cup_game_players');
+          refetchState(gameId!, 'cup_game_players');
         },
       )
       .subscribe((status, err) => {
@@ -269,7 +269,7 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
           // If we just recovered from an error/disconnect, do an immediate refetch
           if (prevStatus === 'CHANNEL_ERROR' || prevStatus === 'CLOSED' || prevStatus === 'TIMED_OUT') {
             dbg('sub', 'recovered from', prevStatus, '→ immediate refetch');
-            refetchImmediate(gameId, 'reconnect');
+            refetchImmediate(gameId!, 'reconnect');
           }
         } else if (status === 'CLOSED') {
           setRealtimeStatus('disconnected');
@@ -286,14 +286,14 @@ export function useRealtimeSubscription({ gameId, onStateUpdate, enabled }: UseR
     // --- Polling fallback: refetch every POLL_INTERVAL as a safety net ---
     const pollTimer = setInterval(() => {
       dbg('poll', 'periodic refetch');
-      refetchImmediate(gameId, 'poll');
+      refetchImmediate(gameId!, 'poll');
     }, POLL_INTERVAL);
 
     // --- Refetch on window focus (catch up after tab was backgrounded) ---
     function handleVisibility() {
       if (document.visibilityState === 'visible') {
         dbg('focus', 'tab became visible → refetch');
-        refetchImmediate(gameId, 'focus');
+        refetchImmediate(gameId!, 'focus');
       }
     }
     document.addEventListener('visibilitychange', handleVisibility);
