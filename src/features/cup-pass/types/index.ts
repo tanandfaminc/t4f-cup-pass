@@ -25,6 +25,7 @@ export interface PlayEvent {
   event: HitEvent;
   delta: number;
   inning: number;
+  inningHalf: 'top' | 'bottom';
   /** Supabase cup_game_events.id — set after persisted */
   dbId?: string;
 }
@@ -36,6 +37,7 @@ export interface ActiveGame {
   scores: Record<string, number>; // playerId -> score
   currentPlayerIndex: number;
   inning: number;
+  inningHalf: 'top' | 'bottom';
   history: PlayEvent[];
   isFinished: boolean;
   isPaused: boolean;

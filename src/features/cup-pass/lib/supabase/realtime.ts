@@ -98,6 +98,7 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
       event: ev.result_type as HitEvent,
       delta: ev.score_delta,
       inning: ev.inning_number,
+      inningHalf: 'top' as const,
       dbId: ev.id,
     };
   });
@@ -115,6 +116,7 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
       scores,
       currentPlayerIndex: gameRow.current_holder_index,
       inning: gameRow.inning_number,
+      inningHalf: 'top' as const,
       history,
       isFinished,
       isPaused,
