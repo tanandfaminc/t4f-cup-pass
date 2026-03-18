@@ -8,6 +8,8 @@ import SeatOrderPage from './features/cup-pass/pages/SeatOrderPage';
 import StartConfirmPage from './features/cup-pass/pages/StartConfirmPage';
 import GamePage from './features/cup-pass/pages/GamePage';
 import EndGamePage from './features/cup-pass/pages/EndGamePage';
+import JoinPage from './features/cup-pass/pages/JoinPage';
+import PlayerGamePage from './features/cup-pass/pages/PlayerGamePage';
 
 export default function App() {
   return (
@@ -22,6 +24,9 @@ export default function App() {
             <Route path="/start" element={<StartConfirmPage />} />
             <Route path="/game" element={<GamePage />} />
             <Route path="/end" element={<EndGamePage />} />
+            <Route path="/join" element={<JoinPage />} />
+            <Route path="/join/:code" element={<JoinPage />} />
+            <Route path="/play/:code" element={<PlayerGamePage />} />
           </Routes>
         </RouteGuard>
       </BrowserRouter>
