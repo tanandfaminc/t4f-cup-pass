@@ -104,6 +104,34 @@ export function nextInning(game: ActiveGame): ActiveGame {
   return { ...game, inning: newInning, inningHalf: 'top', rotationDirection: newDirection };
 }
 
+/**
+ * Revert to the previous half-inning (inverse of nextInning).
+ * Bottom N → Top N (same inning number, direction unchanged).
+ * Top N → Bottom N-1 (inning decrements, direction flips if reverseEachInning).
+ * Returns the game unchanged if already at Top 1 (nowhere to go back).
+ */
+export function prevInning(game: ActiveGame): ActiveGame {
+  if (game.inningHalf === 'bottom') {
+    return { ...game, inningHalf: 'top' };
+  }
+  if (game.inning <= 1) return game; // Already at Top 1
+  const newInning = game.inning - 1;
+  const newDirection = game.reverseEachInning
+    ? flipDirection(game.rotationDirection)
+    : game.rotationDirection;
+  return { ...game, inning: newInning, inningHalf: 'bottom', rotationDirection: newDirection };
+}
+
+/**
+ * Count the plays recorded in the current half-inning.
+ * Used to determine whether it is safe to revert inning advancement.
+ */
+export function playsInCurrentHalf(game: ActiveGame): number {
+  return game.history.filter(
+    (e) => e.inning === game.inning && e.inningHalf === game.inningHalf,
+  ).length;
+}
+
 export function endGame(game: ActiveGame): ActiveGame {
   return { ...game, isFinished: true, isPaused: false };
 }

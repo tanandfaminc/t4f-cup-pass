@@ -11,7 +11,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './client';
 import * as repo from './repository';
-import type { GameContextState, Player, PlayEvent, BackendStatus, HitEvent } from '../../types';
+import type { ActiveGame, GameContextState, Player, PlayEvent, BackendStatus, HitEvent } from '../../types';
 import { SCORE_MAP } from '../scoring';
 
 export interface SyncResult {
@@ -228,13 +228,33 @@ export function useSupabaseSync() {
   );
 
   /**
-   * Update inning in DB.
+   * Update inning in DB (advance).
    */
   const syncNextInning = useCallback(
     async (currentInning: number): Promise<SyncResult> => {
       const gameId = gameIdRef.current;
       if (!isSupabaseConfigured() || !gameId) return { skipped: true };
       await repo.updateGame(gameId, { inning_number: currentInning + 1 });
+      return {};
+    },
+    [],
+  );
+
+  /**
+   * Update inning in DB (revert previous half-inning).
+   * Mirrors the logic in prevInning() from gameLogic.ts.
+   * Bottom N → Top N: inning_number stays N.
+   * Top N → Bottom N-1: inning_number becomes N-1.
+   */
+  const syncPrevInning = useCallback(
+    async (game: ActiveGame): Promise<SyncResult> => {
+      const gameId = gameIdRef.current;
+      if (!isSupabaseConfigured() || !gameId) return { skipped: true };
+      // Bottom N → Top N: no inning number change needed
+      if (game.inningHalf === 'bottom') return {};
+      // Top N → Bottom N-1: decrement inning number in DB
+      if (game.inning <= 1) return { skipped: true };
+      await repo.updateGame(gameId, { inning_number: game.inning - 1 });
       return {};
     },
     [],
@@ -472,6 +492,7 @@ export function useSupabaseSync() {
     syncLogEvent,
     syncUndo,
     syncNextInning,
+    syncPrevInning,
     syncPause,
     syncResume,
     syncEndGame,
