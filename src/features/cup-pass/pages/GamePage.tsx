@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
-import { rankPlayers } from '../lib/gameLogic';
+import { rankPlayers, playsInCurrentHalf } from '../lib/gameLogic';
 import { getMode } from '../lib/modes';
 import { track } from '../lib/analytics';
 import { colors, font, radius, btnBase, wordmark } from '../lib/theme';

@@ -51,6 +51,15 @@ export function logEvent(
   };
 }
 
+/**
+ * Derive the rotation direction for a given inning number.
+ * Direction starts 'left' at inning 1 and flips each time the inning increments.
+ */
+export function deriveRotationDirection(inning: number, reverseEachInning: boolean): RotationDirection {
+  if (!reverseEachInning) return 'left';
+  return (inning - 1) % 2 === 0 ? 'left' : 'right';
+}
+
 export function undoLastEvent(game: ActiveGame): ActiveGame {
   if (game.history.length === 0) return game;
   const last = game.history[game.history.length - 1];
