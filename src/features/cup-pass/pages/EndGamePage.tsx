@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { rankPlayers } from '../lib/gameLogic';
+import { getMode } from '../lib/modes';
 import { track } from '../lib/analytics';
 import { colors, font, radius, btnBase, wordmark } from '../lib/theme';
 
@@ -14,6 +15,7 @@ export default function EndGamePage() {
   const { state, actions } = useGame();
   const ranked = rankPlayers(state);
   const game = state.game!;
+  const mode = getMode(state.mode);
   const [copied, setCopied] = useState(false);
 
   const winner = ranked[0];
@@ -29,17 +31,22 @@ export default function EndGamePage() {
   }
 
   const buildShareText = useCallback(() => {
+    const modeTag = mode.id === 'cup_classic' ? ' (Cup Classic)' : '';
     const lines = [
-      `T4F Cup Pass — ${state.gameName || 'Game Over'}`,
+      `T4F Cup Pass — ${state.gameName || 'Game Over'}${modeTag}`,
       '',
-      ...ranked.map((p, i) =>
-        `${i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`} ${p.name}: ${scoreDisplay(p.score)}`
-      ),
+      ...ranked.map((p, i) => {
+        const rank = i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`;
+        const scoreStr = mode.id === 'cup_classic'
+          ? `${p.score} ${mode.scoreUnitPlural}`
+          : scoreDisplay(p.score);
+        return `${rank} ${p.name}: ${scoreStr}`;
+      }),
       '',
       `${game.history.length} plays over ${game.inning} inning${game.inning !== 1 ? 's' : ''}`,
     ];
     return lines.join('\n');
-  }, [state.gameName, ranked, game.history.length, game.inning]);
+  }, [state.gameName, ranked, game.history.length, game.inning, mode]);
 
   const handleShare = useCallback(() => {
     const text = buildShareText();
@@ -55,21 +62,28 @@ export default function EndGamePage() {
     }
   }, [buildShareText]);
 
+  const isClassic = mode.id === 'cup_classic';
+
   return (
     <main style={s.page}>
       {/* Branded header */}
       <section style={s.headerCard}>
         <p style={wordmark}>T4F Cup Pass</p>
-        <h1 style={s.title}>Game Over</h1>
+        <h1 style={s.title}>{isClassic ? 'Cup Classic — Game Over' : 'Game Over'}</h1>
         {state.gameName && <p style={s.gameName}>{state.gameName}</p>}
+        {isClassic && (
+          <p style={s.modeBadge}>🪙 Coin Mode · No cash, just bragging rights</p>
+        )}
       </section>
 
       {/* Winner highlight */}
       {winner && (
         <section style={s.winnerCard}>
-          <p style={s.winnerLabel}>Winner</p>
+          <p style={s.winnerLabel}>{isClassic ? 'Most Coins' : 'Winner'}</p>
           <p style={s.winnerName}>{winner.name}</p>
-          <p style={s.winnerScore}>{scoreDisplay(winner.score)}</p>
+          <p style={s.winnerScore}>
+            {isClassic ? `🪙 ${winner.score} ${mode.scoreUnitPlural}` : scoreDisplay(winner.score)}
+          </p>
         </section>
       )}
 
@@ -91,7 +105,9 @@ export default function EndGamePage() {
 
       {/* Final standings */}
       <section style={s.standingsCard}>
-        <p style={s.standingsTitle}>Final Standings</p>
+        <p style={s.standingsTitle}>
+          {isClassic ? '🪙 Final Coin Totals' : 'Final Standings'}
+        </p>
         <ol style={s.list}>
           {ranked.map((p, i) => (
             <li key={p.id} style={{
@@ -103,7 +119,7 @@ export default function EndGamePage() {
               <span style={s.name}>{p.name}</span>
               {p.seat && <span style={s.seat}>{p.seat}</span>}
               <span style={{ ...s.score, color: p.score > 0 ? colors.positive : p.score < 0 ? colors.negative : colors.textPrimary }}>
-                {scoreDisplay(p.score)}
+                {isClassic ? `🪙 ${p.score}` : scoreDisplay(p.score)}
               </span>
             </li>
           ))}
@@ -134,6 +150,7 @@ const s: Record<string, React.CSSProperties> = {
   headerCard: { textAlign: 'center', padding: '0.75rem 0 0.25rem' },
   title: { fontSize: '1.75rem', fontWeight: 800, margin: 0, color: colors.textPrimary },
   gameName: { fontSize: font.md, color: colors.textSecondary, margin: '0.15rem 0 0', fontWeight: 500 },
+  modeBadge: { fontSize: font.sm, color: colors.textMuted, margin: '0.25rem 0 0', fontStyle: 'italic' },
 
   winnerCard: { background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryLight})`, color: colors.white, borderRadius: radius.lg, padding: '1.25rem 1rem', textAlign: 'center' },
   winnerLabel: { fontSize: font.xs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.85, margin: '0 0 0.2rem' },

@@ -1,13 +1,14 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import type { GameContextState, HitEvent, Player, BackendStatus } from '../types';
+import type { GameContextState, HitEvent, Player, BackendStatus, GameModeId } from '../types';
 import { initGame, logEvent, nextInning, endGame, undoLastEvent } from './gameLogic';
+import { getMode, DEFAULT_MODE } from './modes';
 import { saveState, loadState, clearState } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
 import { isSupabaseConfigured } from './supabase/client';
 import { track } from './analytics';
 
 export type Action =
-  | { type: 'SET_GAME_INFO'; gameName: string; teamName: string }
+  | { type: 'SET_GAME_INFO'; gameName: string; teamName: string; mode: GameModeId }
   | { type: 'SET_PLAYERS'; players: Player[] }
   | { type: 'START_GAME' }
   | { type: 'LOG_EVENT'; event: HitEvent }
@@ -30,17 +31,18 @@ const INITIAL_STATE: GameContextState = {
   teamName: '',
   players: [],
   game: null,
+  mode: DEFAULT_MODE,
   role: 'host',
 };
 
 function reducer(state: GameContextState, action: Action): GameContextState {
   switch (action.type) {
     case 'SET_GAME_INFO':
-      return { ...state, gameName: action.gameName, teamName: action.teamName };
+      return { ...state, gameName: action.gameName, teamName: action.teamName, mode: action.mode };
     case 'SET_PLAYERS':
       return { ...state, players: action.players };
     case 'START_GAME':
-      return { ...state, game: initGame(state.players) };
+      return { ...state, game: initGame(state.players, getMode(state.mode).startingScore) };
     case 'LOG_EVENT':
       if (!state.game || state.game.isPaused) return state;
       return { ...state, game: logEvent(state.game, state.players, action.event) };
@@ -61,7 +63,7 @@ function reducer(state: GameContextState, action: Action): GameContextState {
       return { ...state, game: { ...state.game, isPaused: false } };
     case 'REMATCH':
       if (!state.game) return state;
-      return { ...state, game: initGame(state.players) };
+      return { ...state, game: initGame(state.players, getMode(state.mode).startingScore) };
     case 'RESET':
       clearState();
       return INITIAL_STATE;
@@ -96,7 +98,7 @@ interface GameContextValue {
   dispatch: React.Dispatch<Action>;
   // Supabase-aware action helpers (fire-and-forget backend sync)
   actions: {
-    setGameInfo: (gameName: string, teamName: string) => Promise<void>;
+    setGameInfo: (gameName: string, teamName: string, mode?: GameModeId) => Promise<void>;
     setPlayers: (players: Player[]) => Promise<void>;
     startGame: () => Promise<void>;
     logEvent: (event: HitEvent) => Promise<void>;
@@ -154,10 +156,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // --- Action helpers that dispatch locally AND sync to Supabase ---
 
   const setGameInfo = useCallback(
-    async (gameName: string, teamName: string) => {
+    async (gameName: string, teamName: string, mode: GameModeId = DEFAULT_MODE) => {
       if (!requireHost('setGameInfo')) return;
       track('game_create_started');
-      dispatch({ type: 'SET_GAME_INFO', gameName, teamName });
+      dispatch({ type: 'SET_GAME_INFO', gameName, teamName, mode });
       const result = await sync.syncCreateGame(gameName, teamName);
       if (result.dbGameId && result.publicCode) {
         dispatch({ type: '_SET_DB_IDS', dbGameId: result.dbGameId, publicCode: result.publicCode });

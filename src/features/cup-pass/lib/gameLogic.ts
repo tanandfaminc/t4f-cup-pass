@@ -11,9 +11,9 @@ function dirStep(dir: RotationDirection): 1 | -1 {
   return dir === 'left' ? 1 : -1;
 }
 
-export function initGame(players: Player[]): ActiveGame {
+export function initGame(players: Player[], startingScore = 0): ActiveGame {
   const scores: Record<string, number> = {};
-  for (const p of players) scores[p.id] = 0;
+  for (const p of players) scores[p.id] = startingScore;
   return {
     scores,
     currentPlayerIndex: 0,

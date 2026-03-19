@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { rankPlayers } from '../lib/gameLogic';
+import { getMode } from '../lib/modes';
 import { track } from '../lib/analytics';
 import { colors, font, radius, btnBase, wordmark } from '../lib/theme';
 import type { HitEvent } from '../types';
@@ -65,6 +66,7 @@ export default function GamePage() {
   const ranked = rankPlayers(state);
   const isPaused = game.isPaused;
   const dirLabel = game.rotationDirection === 'left' ? '← Passing left' : 'Passing right →';
+  const mode = getMode(state.mode);
 
   function log(event: HitEvent) {
     actions.logEvent(event);
@@ -135,7 +137,9 @@ export default function GamePage() {
         <p style={s.cupLabel}>Cup is with</p>
         <p style={s.cupName}>{currentPlayer.name}</p>
         {currentPlayer.seat && <p style={s.cupSeat}>Seat {currentPlayer.seat}</p>}
-        <p style={s.cupScore}>{scoreDisplay(game.scores[currentPlayer.id])}</p>
+        <p style={s.cupScore}>
+          {mode.id === 'cup_classic' ? '🪙 ' : ''}{scoreDisplay(game.scores[currentPlayer.id])} {mode.scoreUnitPlural}
+        </p>
       </section>
 
       {/* Next up indicator */}
@@ -204,7 +208,9 @@ export default function GamePage() {
 
       {/* Mini scoreboard */}
       <section style={s.scoreboard}>
-        <p style={s.scoreboardTitle}>Scoreboard</p>
+        <p style={s.scoreboardTitle}>
+          {mode.id === 'cup_classic' ? '🪙 Coin Totals' : 'Scoreboard'}
+        </p>
         {ranked.map((p, i) => {
           const isCurrent = p.id === currentPlayer.id;
           const isNext = p.id === nextPlayer.id;
