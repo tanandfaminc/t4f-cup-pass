@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
-import { rankPlayers, playsInCurrentHalf, outsInCurrentHalf } from '../lib/gameLogic';
+import { rankPlayers, playsInCurrentHalf, outsInCurrentHalf, isHalfComplete } from '../lib/gameLogic';
 import { getMode } from '../lib/modes';
 import { track } from '../lib/analytics';
 import { colors, font, radius, btnBase, wordmark } from '../lib/theme';
@@ -65,6 +65,8 @@ export default function GamePage() {
   const nextPlayer = players[(game.currentPlayerIndex + dirStep + players.length) % players.length];
   const ranked = rankPlayers(state);
   const isPaused = game.isPaused;
+  const halfComplete = isHalfComplete(game);
+  const boardDisabled = isPaused || halfComplete;
   const dirLabel = game.rotationDirection === 'left' ? '← Passing left' : 'Passing right →';
   const mode = getMode(state.mode);
 
@@ -198,9 +200,9 @@ export default function GamePage() {
         {EVENTS.map(({ event, label, delta }) => (
           <button
             key={event}
-            style={{ ...s.eventBtn, background: eventColor(delta), opacity: isPaused ? 0.4 : 1 }}
+            style={{ ...s.eventBtn, background: eventColor(delta), opacity: boardDisabled ? 0.3 : 1 }}
             onClick={() => log(event)}
-            disabled={isPaused}
+            disabled={boardDisabled}
           >
             <span style={s.eventLabel}>{label}</span>
             <span style={s.eventDelta}>{delta > 0 ? `+${delta}` : delta === 0 ? '0' : delta}</span>
@@ -208,10 +210,23 @@ export default function GamePage() {
         ))}
       </section>
 
+      {/* Half-complete notice — shown only when the current half already has 3 outs */}
+      {halfComplete && !isPaused && (
+        <div style={s.halfCompleteNotice}>
+          <span style={s.halfCompleteText}>
+            3 outs recorded — this half-inning is complete. Undo the last play to make changes.
+          </span>
+        </div>
+      )}
+
       {/* Undo + History */}
       <div style={s.undoRow}>
         <button
-          style={{ ...s.undoBtn, opacity: game.history.length === 0 ? 0.3 : 1 }}
+          style={{
+            ...s.undoBtn,
+            ...(halfComplete && game.history.length > 0 ? s.undoBtnProminent : {}),
+            opacity: game.history.length === 0 ? 0.3 : 1,
+          }}
           onClick={() => actions.undo()}
           disabled={game.history.length === 0}
         >
@@ -332,8 +347,15 @@ const s: Record<string, React.CSSProperties> = {
   eventLabel: { fontSize: font.base, fontWeight: 700 },
   eventDelta: { fontSize: font.sm, opacity: 0.85 },
 
+  halfCompleteNotice: {
+    background: colors.infoBg, border: `1px solid ${colors.accent}40`,
+    borderRadius: radius.md, padding: '0.5rem 0.75rem', textAlign: 'center' as const,
+  },
+  halfCompleteText: { fontSize: font.sm, fontWeight: 600, color: colors.primaryLight },
+
   undoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   undoBtn: { ...btnBase, fontSize: font.sm, padding: '0.4rem 0.75rem', background: colors.surface, border: `1px solid ${colors.border}`, color: colors.textSecondary, borderRadius: radius.sm },
+  undoBtnProminent: { background: colors.primary, color: colors.white, border: 'none', padding: '0.55rem 1.1rem', fontSize: font.md },
   historyToggle: { ...btnBase, fontSize: font.sm, padding: '0.4rem 0.75rem', background: 'none', border: `1px solid ${colors.border}`, color: colors.primary, borderRadius: radius.sm },
 
   historyPanel: { background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: radius.md, padding: '0.5rem', maxHeight: '200px', overflowY: 'auto' },

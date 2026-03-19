@@ -45,11 +45,23 @@ export function outsInCurrentHalf(game: ActiveGame): number {
   ).length;
 }
 
+/**
+ * Returns true when the current half-inning has 3 or more outs recorded.
+ * Used to block new play submissions in completed halves (e.g. after navigating back).
+ */
+export function isHalfComplete(game: ActiveGame): boolean {
+  return outsInCurrentHalf(game) >= 3;
+}
+
 export function logEvent(
   game: ActiveGame,
   players: Player[],
   event: HitEvent,
 ): ActiveGame {
+  // Safety guard: never accept new events in a completed half-inning.
+  // This covers the case where the host navigated back to a prior completed half.
+  if (isHalfComplete(game)) return game;
+
   const player = players[game.currentPlayerIndex];
   const delta = SCORE_MAP[event];
   const entry: PlayEvent = {

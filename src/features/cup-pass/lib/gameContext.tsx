@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { GameContextState, HitEvent, Player, BackendStatus, GameModeId } from '../types';
-import { initGame, logEvent, nextInning, prevInning, endGame, undoLastEvent, isOut, outsInCurrentHalf } from './gameLogic';
+import { initGame, logEvent, nextInning, prevInning, endGame, undoLastEvent, isOut, outsInCurrentHalf, isHalfComplete } from './gameLogic';
 import { getMode, DEFAULT_MODE } from './modes';
 import { saveState, loadState, clearState } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
@@ -46,6 +46,7 @@ function reducer(state: GameContextState, action: Action): GameContextState {
       return { ...state, game: initGame(state.players, getMode(state.mode).startingScore) };
     case 'LOG_EVENT':
       if (!state.game || state.game.isPaused) return state;
+      if (isHalfComplete(state.game)) return state; // half already has 3 outs
       return { ...state, game: logEvent(state.game, state.players, action.event) };
     case 'NEXT_INNING':
       if (!state.game) return state;
@@ -202,6 +203,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const logEventAction = useCallback(
     async (event: HitEvent) => {
       if (!requireHost('logEvent')) return;
+      // Block submissions in a completed half-inning (3 outs already recorded)
+      if (state.game && isHalfComplete(state.game)) return;
       // Rapid submission guard — block if already processing
       if (submittingRef.current) return;
       submittingRef.current = true;
