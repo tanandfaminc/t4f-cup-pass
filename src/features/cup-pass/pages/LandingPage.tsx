@@ -31,8 +31,7 @@ export default function LandingPage() {
     <main style={s.page}>
       {/* T4F Branding */}
       <div style={s.brand}>
-        <div style={s.logoMark}>⚾</div>
-        <h1 style={s.title}>T4F Cup Pass</h1>
+        <img src="/logo.png" alt="T4F Cup Pass" style={s.logoImg} />
         <p style={s.tagline}>Tickets 4 Fans</p>
       </div>
 
@@ -87,9 +86,8 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     minHeight: '100dvh', padding: '1.5rem', gap: '0.75rem', textAlign: 'center',
   },
-  brand: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' },
-  logoMark: { fontSize: '2.5rem', marginBottom: '0.25rem' },
-  title: { fontSize: '1.75rem', fontWeight: 800, color: colors.primary, margin: 0 },
+  brand: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' },
+  logoImg: { width: '160px', height: 'auto', display: 'block' },
   tagline: { fontSize: font.xs, fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.15em', margin: 0 },
   subtitle: { fontSize: font.md, color: colors.textSecondary, margin: 0, maxWidth: '280px' },
 

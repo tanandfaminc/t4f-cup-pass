@@ -22,6 +22,15 @@ export function loadState(): GameContextState | null {
       parsed.game.rotationDirection = 'left';
       parsed.game.reverseEachInning = true;
     }
+    // Ensure inningHalf defaults for states saved before half-inning feature
+    if (parsed.game && !parsed.game.inningHalf) {
+      parsed.game.inningHalf = 'top';
+    }
+    if (parsed.game?.history) {
+      parsed.game.history = parsed.game.history.map((ev) =>
+        ev.inningHalf ? ev : { ...ev, inningHalf: 'top' as const },
+      );
+    }
     return parsed;
   } catch {
     return null;

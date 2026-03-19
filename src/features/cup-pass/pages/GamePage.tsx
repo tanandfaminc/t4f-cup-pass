@@ -78,6 +78,20 @@ export default function GamePage() {
     navigate('/end');
   }
 
+  function handlePrevInning() {
+    // Can't go back from Top 1
+    if (game.inning <= 1 && game.inningHalf === 'top') return;
+    const playsThisHalf = playsInCurrentHalf(game);
+    if (playsThisHalf > 0) {
+      const halfLabel = `${game.inningHalf === 'top' ? 'Top' : 'Bottom'} ${game.inning}`;
+      window.alert(
+        `${playsThisHalf} play${playsThisHalf > 1 ? 's have' : ' has'} already been logged in ${halfLabel}.\n\nPlease undo those plays first using "Undo Last", then go back.`,
+      );
+      return;
+    }
+    actions.prevInning();
+  }
+
   // Build player name lookup for history
   const playerNames: Record<string, string> = {};
   for (const p of players) playerNames[p.id] = p.name;
@@ -93,7 +107,7 @@ export default function GamePage() {
       {/* Inning + Direction strip */}
       <div style={s.inningStrip}>
         <div style={s.inningBadge}>
-          <span style={s.inningLabel}>Inning</span>
+          <span style={s.inningHalfLabel}>{game.inningHalf === 'top' ? 'Top' : 'Bottom'}</span>
           <span style={s.inningNum}>{game.inning}</span>
         </div>
         <span style={s.dirLabel}>{dirLabel}</span>
@@ -103,7 +117,9 @@ export default function GamePage() {
       {/* Game controls */}
       <div style={s.controlRow}>
         <button style={s.controlBtn} onClick={() => actions.nextInning()}>
-          Next Inning
+          {game.inningHalf === 'top'
+            ? `↓ Bottom ${game.inning}`
+            : `↑ Top ${game.inning + 1}`}
         </button>
         <button
           style={{
@@ -121,6 +137,20 @@ export default function GamePage() {
           </button>
         )}
       </div>
+
+      {/* Prev-half revert control — host only, shown when not at Top 1 */}
+      {(game.inning > 1 || game.inningHalf === 'bottom') && (
+        <div style={s.prevHalfRow}>
+          <button style={s.prevHalfBtn} onClick={handlePrevInning}>
+            ← Prev Half
+          </button>
+          <span style={s.prevHalfHint}>
+            {game.inningHalf === 'top'
+              ? `Back to Bottom ${game.inning - 1}`
+              : `Back to Top ${game.inning}`}
+          </span>
+        </div>
+      )}
 
       {/* Pause overlay */}
       {isPaused && (
@@ -192,7 +222,7 @@ export default function GamePage() {
           ) : (
             [...game.history].reverse().map((ev, i) => (
               <div key={game.history.length - 1 - i} style={s.historyRow}>
-                <span style={s.historyInning}>Inn {ev.inning}</span>
+                <span style={s.historyInning}>{ev.inningHalf === 'top' ? 'T' : 'B'}{ev.inning}</span>
                 <span style={s.historyName}>{playerNames[ev.playerId]}</span>
                 <span style={{ ...s.historyEvent, color: eventColor(ev.delta) }}>
                   {EVENT_LABELS[ev.event] || ev.event}
@@ -251,6 +281,7 @@ const s: Record<string, React.CSSProperties> = {
     background: colors.primaryBg, borderRadius: radius.md, padding: '0.5rem 0.75rem',
   },
   inningBadge: { display: 'flex', alignItems: 'baseline', gap: '0.3rem' },
+  inningHalfLabel: { fontSize: font.sm, fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.05em' },
   inningLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' },
   inningNum: { fontSize: font.lg, fontWeight: 800, color: colors.primary },
   dirLabel: { fontSize: font.sm, fontWeight: 700, color: colors.primaryLight },
@@ -310,4 +341,12 @@ const s: Record<string, React.CSSProperties> = {
   scoreSeat: { fontSize: font.xs, color: colors.textMuted },
   scoreVal: { fontSize: font.md, fontWeight: 700 },
   endBtn: { ...btnBase, padding: '0.75rem', fontSize: font.md, background: colors.negative, color: colors.white, borderRadius: radius.md, marginTop: '0.25rem' },
+
+  prevHalfRow: { display: 'flex', alignItems: 'center', gap: '0.5rem' },
+  prevHalfBtn: {
+    ...btnBase, fontSize: font.xs, padding: '0.3rem 0.6rem',
+    background: 'none', border: `1px solid ${colors.border}`,
+    color: colors.textSecondary, borderRadius: radius.sm,
+  },
+  prevHalfHint: { fontSize: font.xs, color: colors.textMuted },
 };

@@ -39,7 +39,7 @@ export default function CreateGamePage() {
             style={s.input}
             value={gameName}
             onChange={(e) => setGameName(e.target.value)}
-            placeholder="e.g. Row 14 Cup Pass"
+            placeholder="e.g. Tans Cup Pass"
           />
           <span style={s.optional}>Optional</span>
         </label>
@@ -50,7 +50,7 @@ export default function CreateGamePage() {
             style={s.input}
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
-            placeholder="e.g. Cubs"
+            placeholder="e.g. Blue Jays"
           />
           <span style={s.optional}>Optional</span>
         </label>

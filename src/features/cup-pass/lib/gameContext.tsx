@@ -13,6 +13,7 @@ export type Action =
   | { type: 'START_GAME' }
   | { type: 'LOG_EVENT'; event: HitEvent }
   | { type: 'NEXT_INNING' }
+  | { type: 'PREV_INNING' }
   | { type: 'END_GAME' }
   | { type: 'UNDO' }
   | { type: 'PAUSE' }
@@ -49,6 +50,9 @@ function reducer(state: GameContextState, action: Action): GameContextState {
     case 'NEXT_INNING':
       if (!state.game) return state;
       return { ...state, game: nextInning(state.game) };
+    case 'PREV_INNING':
+      if (!state.game) return state;
+      return { ...state, game: prevInning(state.game) };
     case 'END_GAME':
       if (!state.game) return state;
       return { ...state, game: endGame(state.game) };
@@ -70,7 +74,13 @@ function reducer(state: GameContextState, action: Action): GameContextState {
     case 'JOIN_GAME':
       return { ...action.state, role: 'player', playerDisplayName: action.displayName };
     case '_HYDRATE':
-      return action.state;
+      // Preserve player role and display name across hydrations
+      // so realtime updates don't accidentally reset them.
+      return {
+        ...action.state,
+        role: state.role === 'player' ? 'player' : action.state.role,
+        playerDisplayName: state.playerDisplayName ?? action.state.playerDisplayName,
+      };
     case '_SET_DB_IDS':
       return { ...state, dbGameId: action.dbGameId, publicCode: action.publicCode };
     case '_SET_PLAYER_DB_IDS': {
@@ -104,6 +114,7 @@ interface GameContextValue {
     logEvent: (event: HitEvent) => Promise<void>;
     undo: () => Promise<void>;
     nextInning: () => Promise<void>;
+    prevInning: () => Promise<void>;
     pause: () => Promise<void>;
     resume: () => Promise<void>;
     endGame: () => Promise<void>;
@@ -229,6 +240,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'NEXT_INNING' });
   }, [sync, state]);
 
+  const prevInningAction = useCallback(async () => {
+    if (!requireHost('prevInning')) return;
+    if (state.game) {
+      await sync.syncPrevInning(state.game);
+    }
+    dispatch({ type: 'PREV_INNING' });
+  }, [sync, state]);
+
   const pause = useCallback(async () => {
     if (!requireHost('pause')) return;
     dispatch({ type: 'PAUSE' });
@@ -304,6 +323,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     logEvent: logEventAction,
     undo,
     nextInning: nextInningAction,
+    prevInning: prevInningAction,
     pause,
     resume,
     endGame: endGameAction,

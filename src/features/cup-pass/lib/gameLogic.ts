@@ -18,6 +18,7 @@ export function initGame(players: Player[], startingScore = 0): ActiveGame {
     scores,
     currentPlayerIndex: 0,
     inning: 1,
+    inningHalf: 'top',
     history: [],
     isFinished: false,
     isPaused: false,
@@ -33,7 +34,13 @@ export function logEvent(
 ): ActiveGame {
   const player = players[game.currentPlayerIndex];
   const delta = SCORE_MAP[event];
-  const entry: PlayEvent = { playerId: player.id, event, delta, inning: game.inning };
+  const entry: PlayEvent = {
+    playerId: player.id,
+    event,
+    delta,
+    inning: game.inning,
+    inningHalf: game.inningHalf,
+  };
   const step = dirStep(game.rotationDirection);
   const nextIndex = (game.currentPlayerIndex + step + players.length) % players.length;
   return {
@@ -52,19 +59,66 @@ export function undoLastEvent(game: ActiveGame): ActiveGame {
   const step = dirStep(game.rotationDirection);
   const playerCount = Object.keys(game.scores).length;
   const prevIndex = (game.currentPlayerIndex - step + playerCount) % playerCount;
+
+  // Restore inning/half from the last remaining event, or default to Top 1
+  const prevEvent = newHistory.length > 0 ? newHistory[newHistory.length - 1] : null;
+  const restoredInning = prevEvent ? prevEvent.inning : 1;
+  const restoredHalf = prevEvent ? prevEvent.inningHalf : 'top';
+  const restoredDirection = deriveRotationDirection(restoredInning, game.reverseEachInning);
+
   return {
     ...game,
     scores: { ...game.scores, [last.playerId]: game.scores[last.playerId] - last.delta },
     currentPlayerIndex: prevIndex,
     history: newHistory,
+    inning: restoredInning,
+    inningHalf: restoredHalf,
+    rotationDirection: restoredDirection,
   };
 }
 
+/**
+ * Advance to the next half-inning.
+ * Top N → Bottom N (same inning number, direction unchanged).
+ * Bottom N → Top N+1 (inning increments, direction flips if reverseEachInning).
+ */
 export function nextInning(game: ActiveGame): ActiveGame {
+  if (game.inningHalf === 'top') {
+    return { ...game, inningHalf: 'bottom' };
+  }
+  const newInning = game.inning + 1;
   const newDirection = game.reverseEachInning
     ? flipDirection(game.rotationDirection)
     : game.rotationDirection;
-  return { ...game, inning: game.inning + 1, rotationDirection: newDirection };
+  return { ...game, inning: newInning, inningHalf: 'top', rotationDirection: newDirection };
+}
+
+/**
+ * Revert to the previous half-inning (inverse of nextInning).
+ * Bottom N → Top N (same inning number, direction unchanged).
+ * Top N → Bottom N-1 (inning decrements, direction flips if reverseEachInning).
+ * Returns the game unchanged if already at Top 1 (nowhere to go back).
+ */
+export function prevInning(game: ActiveGame): ActiveGame {
+  if (game.inningHalf === 'bottom') {
+    return { ...game, inningHalf: 'top' };
+  }
+  if (game.inning <= 1) return game; // Already at Top 1
+  const newInning = game.inning - 1;
+  const newDirection = game.reverseEachInning
+    ? flipDirection(game.rotationDirection)
+    : game.rotationDirection;
+  return { ...game, inning: newInning, inningHalf: 'bottom', rotationDirection: newDirection };
+}
+
+/**
+ * Count the plays recorded in the current half-inning.
+ * Used to determine whether it is safe to revert inning advancement.
+ */
+export function playsInCurrentHalf(game: ActiveGame): number {
+  return game.history.filter(
+    (e) => e.inning === game.inning && e.inningHalf === game.inningHalf,
+  ).length;
 }
 
 export function endGame(game: ActiveGame): ActiveGame {
