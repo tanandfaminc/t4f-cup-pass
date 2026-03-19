@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { useRealtimeSubscription } from '../lib/supabase/realtime';
-import { rankPlayers } from '../lib/gameLogic';
+import { rankPlayers, outsInCurrentHalf } from '../lib/gameLogic';
 import type { GameContextState } from '../types';
 
 const EVENT_LABELS: Record<string, string> = {
@@ -177,6 +177,7 @@ export default function PlayerGamePage() {
       <header style={s.header}>
         <div>
           <span style={s.inning}>{game.inningHalf === 'top' ? 'Top' : 'Bottom'} {game.inning}</span>
+          <span style={s.outs}> · {outsInCurrentHalf(game)}/3 outs</span>
           <span style={s.gameName}> — {state.gameName || 'Cup Pass'}</span>
         </div>
         <span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>
@@ -289,6 +290,7 @@ const s: Record<string, React.CSSProperties> = {
   page: { display: 'flex', flexDirection: 'column', padding: '0.75rem', gap: '0.65rem', minHeight: '100dvh' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   inning: { fontSize: '0.9rem', fontWeight: 700, color: '#333' },
+  outs: { fontSize: '0.8rem', fontWeight: 600, color: '#c62828' },
   gameName: { fontSize: '0.8rem', color: '#888' },
   statusDot: { fontSize: '0.7rem', fontWeight: 700 },
   viewerLabel: { fontSize: '0.75rem', color: '#1a73e8', fontWeight: 600, textAlign: 'center', margin: '-0.3rem 0 0' },

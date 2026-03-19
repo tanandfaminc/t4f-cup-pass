@@ -27,6 +27,24 @@ export function initGame(players: Player[], startingScore = 0): ActiveGame {
   };
 }
 
+/**
+ * Returns true if the event counts as an out for half-inning advancement.
+ * Centralised so adding new out types only requires changing this one function.
+ */
+export function isOut(event: HitEvent): boolean {
+  return event === 'out' || event === 'strikeout' || event === 'sacrifice';
+}
+
+/**
+ * Count outs recorded in the current half-inning.
+ * Derived from history — no separate out counter is needed.
+ */
+export function outsInCurrentHalf(game: ActiveGame): number {
+  return game.history.filter(
+    (e) => e.inning === game.inning && e.inningHalf === game.inningHalf && isOut(e.event),
+  ).length;
+}
+
 export function logEvent(
   game: ActiveGame,
   players: Player[],
@@ -43,12 +61,19 @@ export function logEvent(
   };
   const step = dirStep(game.rotationDirection);
   const nextIndex = (game.currentPlayerIndex + step + players.length) % players.length;
-  return {
+  const updated: ActiveGame = {
     ...game,
     scores: { ...game.scores, [player.id]: game.scores[player.id] + delta },
     currentPlayerIndex: nextIndex,
     history: [...game.history, entry],
   };
+  // Auto-advance to the next half-inning when the 3rd out is reached.
+  // The play event is recorded with the current inning/half before the advance,
+  // so undo (which restores inning from the last event) works correctly for free.
+  if (isOut(event) && outsInCurrentHalf(updated) >= 3) {
+    return nextInning(updated);
+  }
+  return updated;
 }
 
 /**

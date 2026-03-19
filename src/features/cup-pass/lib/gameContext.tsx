@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { GameContextState, HitEvent, Player, BackendStatus, GameModeId } from '../types';
-import { initGame, logEvent, nextInning, prevInning, endGame, undoLastEvent } from './gameLogic';
+import { initGame, logEvent, nextInning, prevInning, endGame, undoLastEvent, isOut, outsInCurrentHalf } from './gameLogic';
 import { getMode, DEFAULT_MODE } from './modes';
 import { saveState, loadState, clearState } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
@@ -207,6 +207,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       submittingRef.current = true;
       try {
         const preState = state;
+        // Detect if this event will trigger automatic half-inning advancement
+        // (3rd out in the current half) so we can sync the inning change to Supabase.
+        const willAutoAdvance = preState.game
+          ? isOut(event) && outsInCurrentHalf(preState.game) + 1 >= 3
+          : false;
         dispatch({ type: 'LOG_EVENT', event });
         track('result_submitted', {
           result_type: event,
@@ -217,6 +222,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         if (result.eventDbId) {
           const eventIndex = preState.game ? preState.game.history.length : 0;
           dispatch({ type: '_SET_EVENT_DB_ID', eventIndex, dbId: result.eventDbId });
+        }
+        // Sync the automatic inning advancement to Supabase if it happened
+        if (willAutoAdvance && preState.game) {
+          await sync.syncNextInning(preState.game.inning);
         }
       } finally {
         submittingRef.current = false;

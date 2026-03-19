@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
-import { rankPlayers, playsInCurrentHalf } from '../lib/gameLogic';
+import { rankPlayers, playsInCurrentHalf, outsInCurrentHalf } from '../lib/gameLogic';
 import { getMode } from '../lib/modes';
 import { track } from '../lib/analytics';
 import { colors, font, radius, btnBase, wordmark } from '../lib/theme';
@@ -110,8 +110,19 @@ export default function GamePage() {
           <span style={s.inningHalfLabel}>{game.inningHalf === 'top' ? 'Top' : 'Bottom'}</span>
           <span style={s.inningNum}>{game.inning}</span>
         </div>
+        <div style={s.outsBadge}>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              style={{
+                ...s.outDot,
+                background: i < outsInCurrentHalf(game) ? '#c62828' : '#ddd',
+              }}
+            />
+          ))}
+          <span style={s.outsLabel}>Outs</span>
+        </div>
         <span style={s.dirLabel}>{dirLabel}</span>
-        <div style={s.playsCount}>{game.history.length} plays</div>
       </div>
 
       {/* Game controls */}
@@ -285,7 +296,9 @@ const s: Record<string, React.CSSProperties> = {
   inningLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' },
   inningNum: { fontSize: font.lg, fontWeight: 800, color: colors.primary },
   dirLabel: { fontSize: font.sm, fontWeight: 700, color: colors.primaryLight },
-  playsCount: { fontSize: font.xs, fontWeight: 600, color: colors.textMuted },
+  outsBadge: { display: 'flex', alignItems: 'center', gap: '0.25rem' },
+  outDot: { width: '0.65rem', height: '0.65rem', borderRadius: '50%', display: 'inline-block' },
+  outsLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, marginLeft: '0.15rem' },
 
   controlRow: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap' },
   controlBtn: {
