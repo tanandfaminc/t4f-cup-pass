@@ -1,10 +1,17 @@
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
+import { getMode } from '../lib/modes';
 import { colors, font, radius, btnBase, wordmark } from '../lib/theme';
+
+const MODE_ICONS: Record<string, string> = {
+  cup_pass: '⚾',
+  cup_classic: '🪙',
+};
 
 export default function StartConfirmPage() {
   const navigate = useNavigate();
   const { state, actions, backendStatus } = useGame();
+  const mode = getMode(state.mode);
 
   async function handleStart() {
     await actions.startGame();
@@ -30,6 +37,18 @@ export default function StartConfirmPage() {
           <span style={s.codeValue}>{state.publicCode}</span>
         </div>
       )}
+
+      {/* Mode description */}
+      <section style={s.modeCard}>
+        <div style={s.modeHeader}>
+          <span style={s.modeIcon}>{MODE_ICONS[mode.id] ?? '🎮'}</span>
+          <span style={s.modeName}>{mode.name}</span>
+        </div>
+        <p style={s.modeDesc}>{mode.description}</p>
+        {mode.id === 'cup_classic' && (
+          <p style={s.modeExtra}>Each player starts with {mode.startingScore} {mode.scoreUnitPlural}.</p>
+        )}
+      </section>
 
       {/* Cup order */}
       <section style={s.card}>
@@ -58,6 +77,9 @@ export default function StartConfirmPage() {
           <p style={s.rule}>Direction reverses each inning</p>
           <p style={s.rule}>{firstPlayer?.name || 'Player 1'} starts with the cup</p>
           <p style={s.rule}>Cup passes left to start</p>
+          {mode.id === 'cup_classic' && (
+            <p style={s.rule}>Score tracked as {mode.scoreUnitPlural} — highest total wins</p>
+          )}
         </div>
       </section>
 
@@ -67,7 +89,7 @@ export default function StartConfirmPage() {
           onClick={handleStart}
           disabled={isSaving}
         >
-          {isSaving ? 'Starting...' : '⚾ Start Game'}
+          {isSaving ? 'Starting...' : `${MODE_ICONS[mode.id] ?? '⚾'} Start Game`}
         </button>
         <button style={s.backBtn} onClick={() => navigate('/seat-order')}>
           ← Back to Seat Order
@@ -89,6 +111,13 @@ const s: Record<string, React.CSSProperties> = {
   },
   codeLabel: { fontSize: font.sm, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' },
   codeValue: { fontSize: font.lg, fontWeight: 800, color: colors.primary, letterSpacing: '0.1em' },
+
+  modeCard: { background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: radius.lg, padding: '0.75rem 1rem' },
+  modeHeader: { display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem' },
+  modeIcon: { fontSize: '1.1rem' },
+  modeName: { fontSize: font.md, fontWeight: 700, color: colors.textPrimary },
+  modeDesc: { fontSize: font.sm, color: colors.textSecondary, margin: 0, lineHeight: 1.4 },
+  modeExtra: { fontSize: font.sm, color: colors.textSecondary, margin: '0.3rem 0 0', fontWeight: 600 },
 
   card: { background: colors.surface, borderRadius: radius.lg, padding: '0.75rem 1rem' },
   cardLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.5rem' },

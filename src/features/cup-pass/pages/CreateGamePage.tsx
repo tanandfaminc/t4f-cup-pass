@@ -1,16 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
+import { MODES } from '../lib/modes';
+import type { GameModeId } from '../types';
 import { colors, font, radius, btnPrimary, wordmark } from '../lib/theme';
+
+const MODE_ICONS: Record<GameModeId, string> = {
+  cup_pass: '⚾',
+  cup_classic: '🪙',
+};
 
 export default function CreateGamePage() {
   const navigate = useNavigate();
   const { actions, backendStatus } = useGame();
   const [gameName, setGameName] = useState('');
   const [teamName, setTeamName] = useState('');
+  const [selectedMode, setSelectedMode] = useState<GameModeId>('cup_pass');
 
   async function handleNext() {
-    await actions.setGameInfo(gameName.trim(), teamName.trim());
+    await actions.setGameInfo(gameName.trim(), teamName.trim(), selectedMode);
     navigate('/seat-order');
   }
 
@@ -46,6 +54,35 @@ export default function CreateGamePage() {
           />
           <span style={s.optional}>Optional</span>
         </label>
+
+        {/* Mode selection */}
+        <div style={s.modeSection}>
+          <p style={s.modeHeading}>Game Mode</p>
+          <div style={s.modeGrid}>
+            {(Object.values(MODES) as typeof MODES[GameModeId][]).map((mode) => {
+              const active = selectedMode === mode.id;
+              return (
+                <button
+                  key={mode.id}
+                  style={{
+                    ...s.modeCard,
+                    borderColor: active ? colors.primary : colors.border,
+                    background: active ? colors.primaryBg : colors.white,
+                  }}
+                  onClick={() => setSelectedMode(mode.id)}
+                  type="button"
+                >
+                  <span style={s.modeIcon}>{MODE_ICONS[mode.id]}</span>
+                  <span style={{ ...s.modeName, color: active ? colors.primary : colors.textPrimary }}>
+                    {mode.name}
+                  </span>
+                  <span style={s.modeDesc}>{mode.description}</span>
+                  {active && <span style={s.modeCheck}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div style={s.bottom}>
@@ -66,5 +103,20 @@ const s: Record<string, React.CSSProperties> = {
   label: { display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: font.base, fontWeight: 600, color: colors.textPrimary, position: 'relative' },
   input: { padding: '0.75rem', fontSize: '1rem', border: `1.5px solid ${colors.border}`, borderRadius: radius.md, width: '100%', background: colors.white },
   optional: { fontSize: font.xs, color: colors.textMuted, fontWeight: 500 },
+
+  modeSection: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  modeHeading: { fontSize: font.base, fontWeight: 600, color: colors.textPrimary, margin: 0 },
+  modeGrid: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  modeCard: {
+    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.2rem',
+    padding: '0.75rem', borderRadius: radius.md, border: '2px solid',
+    cursor: 'pointer', textAlign: 'left', position: 'relative',
+    fontFamily: 'inherit',
+  },
+  modeIcon: { fontSize: '1.25rem', lineHeight: 1 },
+  modeName: { fontSize: font.md, fontWeight: 700, margin: 0 },
+  modeDesc: { fontSize: font.sm, color: colors.textSecondary, lineHeight: 1.4 },
+  modeCheck: { position: 'absolute', top: '0.6rem', right: '0.75rem', fontSize: font.md, color: colors.primary, fontWeight: 700 },
+
   bottom: { marginTop: 'auto', paddingTop: '0.5rem' },
 };

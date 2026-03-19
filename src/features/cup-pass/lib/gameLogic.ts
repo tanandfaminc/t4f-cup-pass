@@ -11,20 +11,9 @@ function dirStep(dir: RotationDirection): 1 | -1 {
   return dir === 'left' ? 1 : -1;
 }
 
-/**
- * Derive rotation direction from inning number.
- * The game always starts at 'left' in inning 1.
- * Direction flips once per inning number change (Bottom→Top).
- * So: inning 1 → 'left', inning 2 → 'right', inning 3 → 'left', ...
- */
-function deriveRotationDirection(inning: number, reverseEachInning: boolean): RotationDirection {
-  if (!reverseEachInning) return 'left';
-  return (inning - 1) % 2 === 0 ? 'left' : 'right';
-}
-
-export function initGame(players: Player[]): ActiveGame {
+export function initGame(players: Player[], startingScore = 0): ActiveGame {
   const scores: Record<string, number> = {};
-  for (const p of players) scores[p.id] = 0;
+  for (const p of players) scores[p.id] = startingScore;
   return {
     scores,
     currentPlayerIndex: 0,
@@ -60,6 +49,15 @@ export function logEvent(
     currentPlayerIndex: nextIndex,
     history: [...game.history, entry],
   };
+}
+
+/**
+ * Derive the rotation direction for a given inning number.
+ * Direction starts 'left' at inning 1 and flips each time the inning increments.
+ */
+export function deriveRotationDirection(inning: number, reverseEachInning: boolean): RotationDirection {
+  if (!reverseEachInning) return 'left';
+  return (inning - 1) % 2 === 0 ? 'left' : 'right';
 }
 
 export function undoLastEvent(game: ActiveGame): ActiveGame {

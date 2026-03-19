@@ -1,3 +1,5 @@
+export type GameModeId = 'cup_pass' | 'cup_classic';
+
 export type HitEvent =
   | 'single'
   | 'double'
@@ -52,6 +54,8 @@ export interface GameContextState {
   teamName: string;
   players: Player[];
   game: ActiveGame | null;
+  /** Selected game mode (defaults to cup_pass) */
+  mode?: GameModeId;
   /** Supabase cup_games.id — set after game is created in DB */
   dbGameId?: string;
   /** Short public code for sharing */
