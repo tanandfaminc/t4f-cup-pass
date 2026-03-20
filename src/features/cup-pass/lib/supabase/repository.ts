@@ -30,6 +30,7 @@ function sb() {
 export async function createGame(fields: {
   game_name: string;
   team_name: string;
+  mode?: string;
 }): Promise<{ data: DbCupGame | null; error: string | null }> {
   let publicCode = generateGameCode();
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -39,6 +40,7 @@ export async function createGame(fields: {
         public_code: publicCode,
         game_name: fields.game_name,
         team_name: fields.team_name,
+        mode: fields.mode ?? 'cup_pass',
         status: 'setup',
       })
       .select()

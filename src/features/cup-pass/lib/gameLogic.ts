@@ -178,3 +178,69 @@ export function rankPlayers(state: GameContextState): Array<Player & { score: nu
     .map((p) => ({ ...p, score: state.game!.scores[p.id] ?? 0 }))
     .sort((a, b) => b.score - a.score);
 }
+
+/**
+ * Replay a flat list of event result types to derive the correct inning,
+ * inningHalf, currentPlayerIndex, and rotationDirection at each point.
+ *
+ * The DB stores inning_number per event but NOT inningHalf (no such column).
+ * This function reconstructs it by simulating the same out-counting logic
+ * used in logEvent(), so loaded state exactly mirrors what the host had live.
+ *
+ * Returns:
+ *   positions[i] — { inning, inningHalf } at the time event i was played
+ *   final        — game position after all events (used for ActiveGame fields)
+ */
+export function deriveInningStatesFromEvents(
+  events: Array<{ result_type: string }>,
+  playerCount: number,
+  reverseEachInning = true,
+): {
+  positions: Array<{ inning: number; inningHalf: 'top' | 'bottom' }>;
+  final: {
+    inning: number;
+    inningHalf: 'top' | 'bottom';
+    currentPlayerIndex: number;
+    rotationDirection: RotationDirection;
+  };
+} {
+  let inning = 1;
+  let half: 'top' | 'bottom' = 'top';
+  let outs = 0;
+  let direction: RotationDirection = 'left';
+  let currentIndex = 0;
+
+  const positions: Array<{ inning: number; inningHalf: 'top' | 'bottom' }> = [];
+
+  for (const ev of events) {
+    // Record the position the event was played in (before any advancement),
+    // matching what logEvent() stores in PlayEvent.inning / PlayEvent.inningHalf
+    positions.push({ inning, inningHalf: half });
+
+    // Advance cup (same direction logic as logEvent → dirStep)
+    const step: 1 | -1 = direction === 'left' ? 1 : -1;
+    currentIndex = (currentIndex + step + playerCount) % playerCount;
+
+    // Count outs and advance half when 3 reached (mirrors logEvent auto-advance)
+    if (isOut(ev.result_type as HitEvent)) {
+      outs++;
+      if (outs >= 3) {
+        if (half === 'top') {
+          half = 'bottom';
+        } else {
+          inning++;
+          half = 'top';
+          if (reverseEachInning) {
+            direction = direction === 'left' ? 'right' : 'left';
+          }
+        }
+        outs = 0;
+      }
+    }
+  }
+
+  return {
+    positions,
+    final: { inning, inningHalf: half, currentPlayerIndex: currentIndex, rotationDirection: direction },
+  };
+}

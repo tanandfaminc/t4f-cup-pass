@@ -33,7 +33,8 @@ export default function PlayerGamePage() {
   // (e.g. shared link opened on a new device), fetch the game by code.
   useEffect(() => {
     if (coldLoadAttempted.current) return;
-    if (state.dbGameId && state.game) return; // already have state
+    // already have state for this specific game code — skip cold load
+    if (state.dbGameId && state.game && state.publicCode?.toUpperCase() === code?.toUpperCase()) return;
     if (!code) return;
 
     coldLoadAttempted.current = true;

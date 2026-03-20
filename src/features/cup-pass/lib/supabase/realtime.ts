@@ -13,8 +13,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './client';
 import * as repo from './repository';
-import type { GameContextState, Player, PlayEvent, HitEvent, RealtimeStatus } from '../../types';
+import type { GameContextState, Player, PlayEvent, HitEvent, RealtimeStatus, GameModeId } from '../../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { deriveInningStatesFromEvents } from '../gameLogic';
+import { DEFAULT_MODE } from '../modes';
 
 // ---------------------------------------------------------------------------
 // Debug logger — developer-focused, prefixed for easy filtering
@@ -90,7 +92,10 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
   const scores: Record<string, number> = {};
   for (const p of players) scores[p.id] = 0;
 
-  const history: PlayEvent[] = events.map((ev) => {
+  // Derive correct inningHalf for each event by replaying out logic
+  const { positions, final: derivedFinal } = deriveInningStatesFromEvents(events, players.length);
+
+  const history: PlayEvent[] = events.map((ev, i) => {
     const localId = dbToLocal.get(ev.holder_player_id) ?? '';
     scores[localId] = (scores[localId] ?? 0) + ev.score_delta;
     return {
@@ -98,7 +103,7 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
       event: ev.result_type as HitEvent,
       delta: ev.score_delta,
       inning: ev.inning_number,
-      inningHalf: 'top' as const,
+      inningHalf: positions[i]?.inningHalf ?? 'top',
       dbId: ev.id,
     };
   });
@@ -106,7 +111,7 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
   const isFinished = gameRow.status === 'finished';
   const isPaused = gameRow.status === 'paused';
 
-  dbg('fetch', `done — ${events.length} events, inning=${gameRow.inning_number}, status=${gameRow.status}`);
+  dbg('fetch', `done — ${events.length} events, inning=${derivedFinal.inning}/${derivedFinal.inningHalf}, status=${gameRow.status}`);
 
   return {
     gameName: gameRow.game_name,
@@ -114,15 +119,16 @@ async function fetchFullGameState(gameId: string): Promise<GameContextState | nu
     players,
     game: {
       scores,
-      currentPlayerIndex: gameRow.current_holder_index,
-      inning: gameRow.inning_number,
-      inningHalf: 'top' as const,
+      currentPlayerIndex: derivedFinal.currentPlayerIndex,
+      inning: derivedFinal.inning,
+      inningHalf: derivedFinal.inningHalf,
       history,
       isFinished,
       isPaused,
-      rotationDirection: 'left',
+      rotationDirection: derivedFinal.rotationDirection,
       reverseEachInning: true,
     },
+    mode: (gameRow.mode as GameModeId) ?? DEFAULT_MODE,
     dbGameId: gameRow.id,
     publicCode: gameRow.public_code,
     role: 'player',

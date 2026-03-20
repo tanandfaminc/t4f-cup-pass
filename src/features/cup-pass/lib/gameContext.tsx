@@ -172,7 +172,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (!requireHost('setGameInfo')) return;
       track('game_create_started');
       dispatch({ type: 'SET_GAME_INFO', gameName, teamName, mode });
-      const result = await sync.syncCreateGame(gameName, teamName);
+      const result = await sync.syncCreateGame(gameName, teamName, mode);
       if (result.dbGameId && result.publicCode) {
         dispatch({ type: '_SET_DB_IDS', dbGameId: result.dbGameId, publicCode: result.publicCode });
         track('game_created', { game_code: result.publicCode });
@@ -287,7 +287,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const rematch = useCallback(async () => {
     if (!requireHost('rematch')) return;
     dispatch({ type: 'REMATCH' });
-    const result = await sync.syncCreateGame(state.gameName, state.teamName);
+    const result = await sync.syncCreateGame(state.gameName, state.teamName, state.mode);
     if (result.dbGameId && result.publicCode) {
       dispatch({ type: '_SET_DB_IDS', dbGameId: result.dbGameId, publicCode: result.publicCode });
       const pResult = await sync.syncSetPlayers(state.players);
