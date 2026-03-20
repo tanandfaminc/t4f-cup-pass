@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
+import { colors, radius, btnBase } from '../lib/theme';
 
 export default function JoinPage() {
   const navigate = useNavigate();
@@ -41,13 +42,17 @@ export default function JoinPage() {
 
   return (
     <main style={s.page}>
-      <h1 style={s.title}>Join a Game</h1>
+      <header style={s.topBar}>
+        <button style={s.navBack} onClick={() => navigate('/')}>‹</button>
+        <h1 style={s.title}>Join a Game</h1>
+      </header>
+
       <p style={s.subtitle}>Enter the game code shared by your host and pick a display name.</p>
 
       <div style={s.form}>
-        <label style={s.label}>Game Code</label>
+        <label style={s.label}>Enter Code</label>
         <input
-          style={{ ...s.input, borderColor: error ? '#c62828' : '#ccc' }}
+          style={{ ...s.input, borderColor: error ? colors.negative : colors.borderCyan }}
           placeholder="e.g. ABC123"
           value={code}
           onChange={(e) => { setCode(e.target.value.toUpperCase()); if (error) setError(''); }}
@@ -81,25 +86,50 @@ export default function JoinPage() {
           {isLoading ? 'Looking for game...' : 'Join Game'}
         </button>
       </div>
-
-      <button style={s.backBtn} onClick={() => navigate('/')}>Back</button>
     </main>
   );
 }
 
 const s: Record<string, React.CSSProperties> = {
-  page: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', padding: '1.5rem', gap: '1rem', textAlign: 'center' },
-  title: { fontSize: '1.5rem', fontWeight: 700, margin: 0 },
-  subtitle: { fontSize: '0.85rem', color: '#666', margin: 0, maxWidth: '300px', lineHeight: 1.5 },
+  page: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    minHeight: '100dvh', padding: '1.5rem', gap: '1rem', textAlign: 'center',
+    background: `linear-gradient(180deg, #0a1628 0%, #0f2a4a 40%, #0a1628 100%)`,
+  },
+  topBar: { display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', maxWidth: '320px' },
+  navBack: {
+    ...btnBase, fontSize: '1.5rem', padding: '0.25rem 0.5rem', background: 'none',
+    color: colors.textSecondary, lineHeight: 1,
+  },
+  title: { fontSize: '1.5rem', fontWeight: 800, margin: 0, color: colors.white },
+  subtitle: { fontSize: '0.85rem', color: colors.textSecondary, margin: 0, maxWidth: '300px', lineHeight: 1.5 },
   form: { display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', maxWidth: '320px', textAlign: 'left' },
-  label: { fontSize: '0.75rem', fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  input: { padding: '0.75rem', fontSize: '1.1rem', fontWeight: 600, border: '2px solid #ccc', borderRadius: '8px', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.15s' },
-  errorBanner: { background: '#fbe9e7', border: '1px solid #ef9a9a', borderRadius: '8px', padding: '0.6rem 0.75rem' },
-  errorText: { fontSize: '0.8rem', color: '#c62828', fontWeight: 600, margin: 0 },
-  joinBtn: { padding: '0.875rem', fontSize: '1rem', fontWeight: 700, background: '#188038', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', marginTop: '0.5rem', transition: 'opacity 0.15s' },
-  backBtn: { padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, background: 'none', border: 'none', color: '#1a73e8', cursor: 'pointer' },
-  errorCard: { background: '#fbe9e7', borderRadius: '14px', padding: '1.5rem', textAlign: 'center', maxWidth: '320px', width: '100%' },
-  errorIcon: { width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: '#c62828', color: '#fff', fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' },
-  errorTitle: { fontSize: '1.1rem', fontWeight: 700, color: '#c62828', margin: '0 0 0.5rem' },
-  errorMsg: { fontSize: '0.85rem', color: '#555', margin: 0, lineHeight: 1.5 },
+  label: { fontSize: '0.75rem', fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  input: {
+    padding: '0.75rem', fontSize: '1.1rem', fontWeight: 600,
+    border: `2px solid ${colors.borderCyan}`, borderRadius: radius.md,
+    width: '100%', boxSizing: 'border-box', transition: 'border-color 0.15s',
+    background: colors.surface, color: colors.white,
+  },
+  errorBanner: { background: colors.negativeBg, border: `1px solid rgba(239, 68, 68, 0.3)`, borderRadius: radius.md, padding: '0.6rem 0.75rem' },
+  errorText: { fontSize: '0.8rem', color: colors.negative, fontWeight: 600, margin: 0 },
+  joinBtn: {
+    ...btnBase, padding: '0.875rem', fontSize: '1rem',
+    background: `linear-gradient(135deg, ${colors.primaryLight}, ${colors.primary})`,
+    color: colors.white, borderRadius: radius.md, marginTop: '0.5rem',
+    border: `1px solid ${colors.borderCyan}`,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+  },
+  backBtn: { ...btnBase, padding: '0.5rem 1rem', fontSize: '0.85rem', background: 'none', color: colors.cyan },
+  errorCard: {
+    background: colors.negativeBg, borderRadius: radius.lg, padding: '1.5rem', textAlign: 'center',
+    maxWidth: '320px', width: '100%', border: `1px solid rgba(239, 68, 68, 0.3)`,
+  },
+  errorIcon: {
+    width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: colors.negative,
+    color: colors.white, fontSize: '1.25rem', fontWeight: 800, display: 'flex',
+    alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem',
+  },
+  errorTitle: { fontSize: '1.1rem', fontWeight: 700, color: colors.negative, margin: '0 0 0.5rem' },
+  errorMsg: { fontSize: '0.85rem', color: colors.textSecondary, margin: 0, lineHeight: 1.5 },
 };
