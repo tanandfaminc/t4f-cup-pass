@@ -5,6 +5,7 @@ import { rankPlayers, playsInCurrentHalf, outsInCurrentHalf, isHalfComplete } fr
 import { getMode } from '../lib/modes';
 import { track } from '../lib/analytics';
 import { colors, font, radius, btnBase, headerBar } from '../lib/theme';
+import GameStatusHeader from '../lib/GameStatusHeader';
 import type { HitEvent } from '../types';
 
 const EVENTS: Array<{ event: HitEvent; label: string; delta: number }> = [
@@ -123,27 +124,13 @@ export default function GamePage() {
         <span style={s.headerSub}>Cup Pass</span>
       </header>
 
-      {/* Inning scorebug strip */}
-      <div style={s.inningStrip}>
-        <div style={s.inningBadge}>
-          <span style={s.inningHalfLabel}>{game.inningHalf === 'top' ? 'TOP' : 'BOT'}</span>
-          <span style={s.inningNum}>{game.inning}</span>
-        </div>
-        <div style={s.outsBadge}>
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              style={{
-                ...s.outDot,
-                background: i < outsInCurrentHalf(game) ? colors.negative : 'rgba(255,255,255,0.2)',
-                boxShadow: i < outsInCurrentHalf(game) ? `0 0 6px ${colors.negative}` : 'none',
-              }}
-            />
-          ))}
-          <span style={s.outsLabel}>Outs</span>
-        </div>
-        <span style={s.dirLabel}>{dirLabel}</span>
-      </div>
+      {/* Scorebug strip — shared design with player view */}
+      <GameStatusHeader
+        inningHalf={game.inningHalf}
+        inning={game.inning}
+        outs={outsInCurrentHalf(game)}
+        rightContent={<span style={s.dirLabel}>{dirLabel}</span>}
+      />
 
       {/* Game controls */}
       <div style={s.controlRow}>
@@ -341,20 +328,7 @@ const s: Record<string, React.CSSProperties> = {
   // Header
   headerBrand: { fontSize: font.xs, fontWeight: 800, color: colors.gold, textTransform: 'uppercase', letterSpacing: '0.1em' },
   headerSub: { fontSize: font.sm, fontWeight: 800, color: colors.cyan, textTransform: 'uppercase', letterSpacing: '0.08em' },
-
-  // Inning strip
-  inningStrip: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    background: colors.surface, borderRadius: 0, padding: '0.5rem 0.75rem',
-    borderBottom: `1px solid ${colors.border}`,
-  },
-  inningBadge: { display: 'flex', alignItems: 'baseline', gap: '0.3rem' },
-  inningHalfLabel: { fontSize: font.sm, fontWeight: 800, color: colors.white, textTransform: 'uppercase', letterSpacing: '0.06em' },
-  inningNum: { fontSize: font.xl, fontWeight: 900, color: colors.white },
   dirLabel: { fontSize: font.sm, fontWeight: 700, color: colors.cyan },
-  outsBadge: { display: 'flex', alignItems: 'center', gap: '0.3rem' },
-  outDot: { width: '0.7rem', height: '0.7rem', borderRadius: '50%', display: 'inline-block', transition: 'all 0.2s' },
-  outsLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, marginLeft: '0.15rem' },
 
   // Controls
   controlRow: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap', padding: '0 0.75rem' },

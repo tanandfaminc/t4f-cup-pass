@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { useRealtimeSubscription } from '../lib/supabase/realtime';
 import { rankPlayers, outsInCurrentHalf } from '../lib/gameLogic';
-import { colors, font, radius, btnBase } from '../lib/theme';
+import { colors, font, radius, btnBase, headerBar } from '../lib/theme';
+import GameStatusHeader from '../lib/GameStatusHeader';
 import type { GameContextState } from '../types';
 
 const EVENT_LABELS: Record<string, string> = {
@@ -130,10 +131,18 @@ export default function PlayerGamePage() {
     const winner = ranked[0];
     return (
       <main style={s.page}>
-        <header style={s.header}>
-          <span style={s.gameName}>{state.gameName || 'Cup Pass'}</span>
-          <span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>
+        <header style={{ ...headerBar, margin: '0 -0.75rem' }}>
+          <span style={{ fontSize: '1.1rem' }}>🏆</span>
+          <span style={s.headerBrand}>Tickets 4 Fans</span>
+          <span style={s.headerSub}>Cup Pass</span>
         </header>
+        <GameStatusHeader
+          inningHalf={game.inningHalf}
+          inning={game.inning}
+          outs={outsInCurrentHalf(game)}
+          rightContent={<span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>}
+          style={{ margin: '0 -0.75rem' }}
+        />
         {state.playerDisplayName && (
           <p style={s.viewerLabel}>Viewing as {state.playerDisplayName}</p>
         )}
@@ -165,15 +174,21 @@ export default function PlayerGamePage() {
 
   return (
     <main style={s.page}>
-      {/* Header */}
-      <header style={s.header}>
-        <div>
-          <span style={s.inning}>{game.inningHalf === 'top' ? 'Top' : 'Bottom'} {game.inning}</span>
-          <span style={s.outs}> · {outsInCurrentHalf(game)}/3 outs</span>
-          <span style={s.gameName}> — {state.gameName || 'Cup Pass'}</span>
-        </div>
-        <span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>
+      {/* Branded header bar — matches host view */}
+      <header style={{ ...headerBar, margin: '0 -0.75rem' }}>
+        <span style={{ fontSize: '1.1rem' }}>🏆</span>
+        <span style={s.headerBrand}>Tickets 4 Fans</span>
+        <span style={s.headerSub}>Cup Pass</span>
       </header>
+
+      {/* Scorebug strip — shared design with host view */}
+      <GameStatusHeader
+        inningHalf={game.inningHalf}
+        inning={game.inning}
+        outs={outsInCurrentHalf(game)}
+        rightContent={<span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>}
+        style={{ margin: '0 -0.75rem' }}
+      />
 
       {connectionBanner}
 
@@ -278,10 +293,8 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', flexDirection: 'column', padding: '0.75rem', gap: '0.65rem', minHeight: '100dvh',
     background: `linear-gradient(180deg, ${colors.pageBg} 0%, #0d1f3c 50%, #0a1628 100%)`,
   },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  inning: { fontSize: '0.9rem', fontWeight: 700, color: colors.white },
-  outs: { fontSize: '0.8rem', fontWeight: 600, color: colors.negative },
-  gameName: { fontSize: '0.8rem', color: colors.textMuted },
+  headerBrand: { fontSize: font.xs, fontWeight: 800, color: colors.gold, textTransform: 'uppercase', letterSpacing: '0.1em' },
+  headerSub: { fontSize: font.sm, fontWeight: 800, color: colors.cyan, textTransform: 'uppercase', letterSpacing: '0.08em' },
   statusDot: { fontSize: '0.7rem', fontWeight: 700 },
   viewerLabel: { fontSize: '0.75rem', color: colors.cyan, fontWeight: 600, textAlign: 'center', margin: '-0.3rem 0 0' },
 
