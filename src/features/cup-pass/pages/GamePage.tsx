@@ -38,9 +38,21 @@ function scoreDisplay(score: number): string {
 
 export default function GamePage() {
   const navigate = useNavigate();
-  const { state, actions } = useGame();
+  const { state, dispatch, actions } = useGame();
   const [showHistory, setShowHistory] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Guard: if there's no active game, bail out to home
+  if (!state.game) {
+    return (
+      <main style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', gap: '1rem', padding: '1.5rem' }}>
+        <p style={{ fontSize: font.lg, fontWeight: 700, color: colors.textPrimary }}>No active game</p>
+        <button style={{ ...btnBase, padding: '0.75rem 1.5rem', background: colors.primary, color: colors.white, borderRadius: radius.md, fontSize: font.md }} onClick={() => navigate('/')}>
+          Go Home
+        </button>
+      </main>
+    );
+  }
 
   const handleShare = useCallback(() => {
     if (!state.publicCode) return;
@@ -291,7 +303,20 @@ export default function GamePage() {
         })}
       </section>
 
-      <button style={s.endBtn} onClick={handleEnd}>End Game</button>
+      <div style={s.bottomRow}>
+        <button style={s.endBtn} onClick={handleEnd}>End Game</button>
+        <button
+          style={s.leaveBtn}
+          onClick={() => {
+            if (window.confirm('Leave this game? The game will still be active for other players.')) {
+              dispatch({ type: 'RESET' });
+              navigate('/');
+            }
+          }}
+        >
+          Leave
+        </button>
+      </div>
     </main>
   );
 }
@@ -375,7 +400,7 @@ const s: Record<string, React.CSSProperties> = {
   nextBadge: { fontSize: font.xs, color: colors.textMuted, fontWeight: 500, fontStyle: 'italic' },
   scoreSeat: { fontSize: font.xs, color: colors.textMuted },
   scoreVal: { fontSize: font.md, fontWeight: 700 },
-  endBtn: { ...btnBase, padding: '0.75rem', fontSize: font.md, background: colors.negative, color: colors.white, borderRadius: radius.md, marginTop: '0.25rem' },
+  endBtn: { ...btnBase, flex: 1, padding: '0.75rem', fontSize: font.md, background: colors.negative, color: colors.white, borderRadius: radius.md },
 
   prevHalfRow: { display: 'flex', alignItems: 'center', gap: '0.5rem' },
   prevHalfBtn: {
@@ -384,4 +409,7 @@ const s: Record<string, React.CSSProperties> = {
     color: colors.textSecondary, borderRadius: radius.sm,
   },
   prevHalfHint: { fontSize: font.xs, color: colors.textMuted },
+
+  bottomRow: { display: 'flex', gap: '0.5rem', alignItems: 'stretch' },
+  leaveBtn: { ...btnBase, padding: '0.75rem 1rem', fontSize: font.sm, background: 'none', color: colors.textMuted, border: `1px solid ${colors.border}`, borderRadius: radius.md },
 };
