@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer, useEffect, useCallback, useRef, 
 import type { GameContextState, HitEvent, Player, BackendStatus, GameModeId } from '../types';
 import { initGame, logEvent, nextInning, prevInning, endGame, undoLastEvent, isOut, outsInCurrentHalf, isHalfComplete } from './gameLogic';
 import { getMode, DEFAULT_MODE } from './modes';
-import { saveState, loadState, clearState } from './persistence';
+import { saveState, loadState, clearState, markGameLeft, getLeftGameCode, clearLeftGameCode } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
 import { isSupabaseConfigured } from './supabase/client';
 import { track } from './analytics';
@@ -39,6 +39,7 @@ const INITIAL_STATE: GameContextState = {
 function reducer(state: GameContextState, action: Action): GameContextState {
   switch (action.type) {
     case 'SET_GAME_INFO':
+      clearLeftGameCode();
       return { ...state, gameName: action.gameName, teamName: action.teamName, mode: action.mode };
     case 'SET_PLAYERS':
       return { ...state, players: action.players };
@@ -70,11 +71,21 @@ function reducer(state: GameContextState, action: Action): GameContextState {
       if (!state.game) return state;
       return { ...state, game: initGame(state.players, getMode(state.mode).startingScore) };
     case 'RESET':
+      // Record the game's public code so we don't auto-resume it
+      if (state.publicCode) {
+        markGameLeft(state.publicCode);
+      }
       clearState();
       return INITIAL_STATE;
     case 'JOIN_GAME':
+      clearLeftGameCode();
       return { ...action.state, role: 'player', playerDisplayName: action.displayName };
-    case '_HYDRATE':
+    case '_HYDRATE': {
+      // Block re-hydration of a game the user explicitly left
+      const leftCode = getLeftGameCode();
+      if (leftCode && action.state.publicCode === leftCode) {
+        return state;
+      }
       // Preserve player role and display name across hydrations
       // so realtime updates don't accidentally reset them.
       return {
@@ -82,6 +93,7 @@ function reducer(state: GameContextState, action: Action): GameContextState {
         role: state.role === 'player' ? 'player' : action.state.role,
         playerDisplayName: state.playerDisplayName ?? action.state.playerDisplayName,
       };
+    }
     case '_SET_DB_IDS':
       return { ...state, dbGameId: action.dbGameId, publicCode: action.publicCode };
     case '_SET_PLAYER_DB_IDS': {
@@ -301,12 +313,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' });
-  }, []);
+    // Clear the Supabase game ID ref so the sync hook stops referencing the old game
+    sync.setGameId(null);
+  }, [sync]);
 
   const loadGameByCode = useCallback(
     async (code: string): Promise<boolean> => {
       const result = await sync.loadGame(code);
       if (result.state) {
+        // User is intentionally resuming — clear the left-game marker
+        clearLeftGameCode();
         dispatch({ type: '_HYDRATE', state: result.state });
         return true;
       }

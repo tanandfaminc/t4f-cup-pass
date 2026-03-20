@@ -1,12 +1,47 @@
 import type { GameContextState } from '../types';
 
 const STORAGE_KEY = 't4f-cup-pass-state';
+const LEFT_GAME_KEY = 't4f-cup-pass-left-game';
 
 export function saveState(state: GameContextState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // Storage full or unavailable — silently ignore
+  }
+}
+
+/**
+ * Record the public code of a game the user explicitly left.
+ * Prevents RouteGuard / realtime from auto-resuming that game.
+ */
+export function markGameLeft(publicCode: string): void {
+  try {
+    localStorage.setItem(LEFT_GAME_KEY, publicCode);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Returns the public code of the last explicitly-left game, or null.
+ */
+export function getLeftGameCode(): string | null {
+  try {
+    return localStorage.getItem(LEFT_GAME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clear the left-game marker (called when user intentionally joins/creates a new game).
+ */
+export function clearLeftGameCode(): void {
+  try {
+    localStorage.removeItem(LEFT_GAME_KEY);
+  } catch {
+    // ignore
   }
 }
 
