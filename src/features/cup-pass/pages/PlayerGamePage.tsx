@@ -4,6 +4,7 @@ import { useGame } from '../lib/gameContext';
 import { useRealtimeSubscription } from '../lib/supabase/realtime';
 import { rankPlayers, outsInCurrentHalf } from '../lib/gameLogic';
 import { colors, font, radius, btnBase } from '../lib/theme';
+import GameStatusHeader from '../lib/GameStatusHeader';
 import type { GameContextState } from '../types';
 
 const EVENT_LABELS: Record<string, string> = {
@@ -130,10 +131,13 @@ export default function PlayerGamePage() {
     const winner = ranked[0];
     return (
       <main style={s.page}>
-        <header style={s.header}>
-          <span style={s.gameName}>{state.gameName || 'Cup Pass'}</span>
-          <span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>
-        </header>
+        <GameStatusHeader
+          inningHalf={game.inningHalf}
+          inning={game.inning}
+          outs={outsInCurrentHalf(game)}
+          gameName={state.gameName || 'Cup Pass'}
+          rightContent={<span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>}
+        />
         {state.playerDisplayName && (
           <p style={s.viewerLabel}>Viewing as {state.playerDisplayName}</p>
         )}
@@ -166,14 +170,13 @@ export default function PlayerGamePage() {
   return (
     <main style={s.page}>
       {/* Header */}
-      <header style={s.header}>
-        <div>
-          <span style={s.inning}>{game.inningHalf === 'top' ? 'Top' : 'Bottom'} {game.inning}</span>
-          <span style={s.outs}> · {outsInCurrentHalf(game)}/3 outs</span>
-          <span style={s.gameName}> — {state.gameName || 'Cup Pass'}</span>
-        </div>
-        <span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>
-      </header>
+      <GameStatusHeader
+        inningHalf={game.inningHalf}
+        inning={game.inning}
+        outs={outsInCurrentHalf(game)}
+        gameName={state.gameName || 'Cup Pass'}
+        rightContent={<span style={{ ...s.statusDot, color: statusColor }}>{statusLabel}</span>}
+      />
 
       {connectionBanner}
 
@@ -278,10 +281,6 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', flexDirection: 'column', padding: '0.75rem', gap: '0.65rem', minHeight: '100dvh',
     background: `linear-gradient(180deg, ${colors.pageBg} 0%, #0d1f3c 50%, #0a1628 100%)`,
   },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  inning: { fontSize: '0.9rem', fontWeight: 700, color: colors.white },
-  outs: { fontSize: '0.8rem', fontWeight: 600, color: colors.negative },
-  gameName: { fontSize: '0.8rem', color: colors.textMuted },
   statusDot: { fontSize: '0.7rem', fontWeight: 700 },
   viewerLabel: { fontSize: '0.75rem', color: colors.cyan, fontWeight: 600, textAlign: 'center', margin: '-0.3rem 0 0' },
 
