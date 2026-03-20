@@ -19,7 +19,11 @@ export type AnalyticsEvent =
   | 'game_resumed'
   | 'game_completed'
   | 'rematch_started'
-  | 'share_clicked';
+  | 'share_clicked'
+  | 'post_game_feedback_selected'
+  | 'post_game_interest_selected'
+  | 'post_game_handoff_clicked'
+  | 'post_game_handoff_skipped';
 
 export interface AnalyticsProperties {
   player_count?: number;

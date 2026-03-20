@@ -10,6 +10,31 @@ function scoreDisplay(score: number): string {
   return score > 0 ? `+${score}` : `${score}`;
 }
 
+type FeedbackOption = {
+  label: string;
+  value: string;
+};
+
+type InterestOption = {
+  label: string;
+  value: string;
+};
+
+const FEEDBACK_OPTIONS: FeedbackOption[] = [
+  { label: 'Loved it', value: 'loved_it' },
+  { label: 'It was good', value: 'it_was_good' },
+  { label: 'Needs work', value: 'needs_work' },
+];
+
+const INTEREST_OPTIONS: InterestOption[] = [
+  { label: 'Get last-minute ticket deals', value: 'last_minute_deals' },
+  { label: 'Find tickets for future games', value: 'future_games' },
+  { label: 'Sell my tickets on Tickets 4 Fans', value: 'sell_tickets' },
+  { label: 'Keep me posted on Cup Pass updates', value: 'cup_pass_updates' },
+];
+
+const MAIN_SITE_BASE = (import.meta.env.VITE_T4F_MAIN_SITE_URL as string | undefined) ?? 'https://tickets4fans.ca';
+
 export default function EndGamePage() {
   const navigate = useNavigate();
   const { state, actions } = useGame();
@@ -17,6 +42,8 @@ export default function EndGamePage() {
   const game = state.game!;
   const mode = getMode(state.mode);
   const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [interest, setInterest] = useState<string | null>(null);
 
   const winner = ranked[0];
 
@@ -61,6 +88,44 @@ export default function EndGamePage() {
       track('share_clicked', { share_method: 'clipboard' });
     }
   }, [buildShareText]);
+
+  const handleFeedbackSelected = useCallback((value: string) => {
+    setFeedback(value);
+    track('post_game_feedback_selected', { feedback: value });
+  }, []);
+
+  const handleInterestSelected = useCallback((value: string) => {
+    setInterest(value);
+    track('post_game_interest_selected', { interest: value });
+  }, []);
+
+  const buildHandoffUrl = useCallback(() => {
+    const params = new URLSearchParams({
+      source: 'cup_pass',
+      completed: 'true',
+      mode: mode.id,
+    });
+
+    if (feedback) params.set('feedback', feedback);
+    if (interest) params.set('interest', interest);
+
+    return `${MAIN_SITE_BASE}/cup-pass/connect?${params.toString()}`;
+  }, [feedback, interest, mode.id]);
+
+  const handleContinueToMainSite = useCallback(() => {
+    if (!interest) return;
+    const destination = buildHandoffUrl();
+    track('post_game_handoff_clicked', { destination, interest, feedback: feedback ?? 'not_provided' });
+    window.location.assign(destination);
+  }, [buildHandoffUrl, feedback, interest]);
+
+  const handleSkipHandoff = useCallback(() => {
+    track('post_game_handoff_skipped', {
+      step: interest ? 'cta' : feedback ? 'interest' : 'feedback',
+      feedback: feedback ?? 'not_provided',
+      interest: interest ?? 'not_provided',
+    });
+  }, [feedback, interest]);
 
   const isClassic = mode.id === 'cup_classic';
 
@@ -135,6 +200,57 @@ export default function EndGamePage() {
           {copied ? 'Copied to clipboard!' : 'Share Results'}
         </button>
 
+        {/* Tickets 4 Fans handoff */}
+        <section style={s.handoffCard}>
+          <p style={s.handoffTitle}>Continue on Tickets 4 Fans</p>
+          {!feedback && (
+            <>
+              <p style={s.handoffPrompt}>Did you like Cup Pass?</p>
+              <div style={s.optionList}>
+                {FEEDBACK_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    style={s.optionBtn}
+                    onClick={() => handleFeedbackSelected(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {feedback && !interest && (
+            <>
+              <p style={s.handoffPrompt}>What do you want from Tickets 4 Fans?</p>
+              <div style={s.optionList}>
+                {INTEREST_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    style={s.optionBtn}
+                    onClick={() => handleInterestSelected(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {interest && (
+            <>
+              <p style={s.handoffPrompt}>Ready to continue?</p>
+              <button style={s.continueBtn} onClick={handleContinueToMainSite}>
+                Continue to Tickets 4 Fans
+              </button>
+            </>
+          )}
+
+          <a href={buildHandoffUrl()} style={s.skipLink} onClick={handleSkipHandoff}>
+            Skip / No thanks
+          </a>
+        </section>
+
         {/* Actions */}
         <div style={s.actions}>
           <button style={s.rematchBtn} onClick={handleRematch}>
@@ -194,6 +310,61 @@ const s: Record<string, React.CSSProperties> = {
     background: `linear-gradient(135deg, ${colors.positive}, ${colors.positiveDark})`,
     color: colors.white, borderRadius: radius.md,
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+  },
+  handoffCard: {
+    background: colors.surface,
+    borderRadius: radius.lg,
+    padding: '0.875rem',
+    border: `1px solid ${colors.border}`,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.6rem',
+  },
+  handoffTitle: {
+    margin: 0,
+    fontSize: font.sm,
+    fontWeight: 700,
+    color: colors.gold,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  },
+  handoffPrompt: {
+    margin: 0,
+    color: colors.textPrimary,
+    fontSize: font.md,
+    fontWeight: 600,
+  },
+  optionList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.45rem',
+  },
+  optionBtn: {
+    ...btnBase,
+    borderRadius: radius.md,
+    background: colors.surfaceLight,
+    color: colors.textPrimary,
+    border: `1px solid ${colors.border}`,
+    textAlign: 'left',
+    padding: '0.7rem 0.75rem',
+    fontSize: font.sm,
+    fontWeight: 600,
+  },
+  continueBtn: {
+    ...btnBase,
+    padding: '0.8rem',
+    fontSize: font.md,
+    background: `linear-gradient(135deg, ${colors.primaryLight}, ${colors.primary})`,
+    color: colors.white,
+    borderRadius: radius.md,
+    border: `1px solid ${colors.borderCyan}`,
+  },
+  skipLink: {
+    color: colors.textMuted,
+    fontSize: font.sm,
+    textDecoration: 'underline',
+    textUnderlineOffset: '0.2rem',
+    alignSelf: 'flex-start',
   },
 
   actions: { marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.25rem' },
