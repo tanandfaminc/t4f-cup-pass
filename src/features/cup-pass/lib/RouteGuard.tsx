@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useGame } from './gameContext';
+import { getLeftGameCode } from './persistence';
 import type { ReactNode } from 'react';
 
 /**
@@ -21,18 +22,26 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
   const hasActiveGame = state.game !== null && !state.game.isFinished;
   const hasFinishedGame = state.game !== null && state.game.isFinished;
 
+  // If the user explicitly left this game, do NOT auto-redirect them back.
+  // They should stay on the landing page until they intentionally rejoin.
+  const leftCode = getLeftGameCode();
+  const isLeftGame = !!leftCode && state.publicCode === leftCode;
+
   // If user is a player with game state and hits a host route, redirect to play screen
-  if (state.role === 'player' && state.publicCode && (hasActiveGame || hasFinishedGame)) {
+  // (but not if they explicitly left this game)
+  if (!isLeftGame && state.role === 'player' && state.publicCode && (hasActiveGame || hasFinishedGame)) {
     return <Navigate to={`/play/${state.publicCode}`} replace />;
   }
 
   // Recovery: if an active game exists, redirect setup screens to /game
-  if (hasActiveGame && ['/', '/create', '/seat-order', '/start'].includes(pathname)) {
+  // (but not if they explicitly left this game)
+  if (!isLeftGame && hasActiveGame && ['/', '/create', '/seat-order', '/start'].includes(pathname)) {
     return <Navigate to="/game" replace />;
   }
 
   // Recovery: if a finished game exists and we're on a setup screen, go to /end
-  if (hasFinishedGame && ['/', '/create', '/seat-order', '/start'].includes(pathname)) {
+  // (but not if they explicitly left this game)
+  if (!isLeftGame && hasFinishedGame && ['/', '/create', '/seat-order', '/start'].includes(pathname)) {
     return <Navigate to="/end" replace />;
   }
 
