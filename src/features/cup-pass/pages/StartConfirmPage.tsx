@@ -27,7 +27,7 @@ export default function StartConfirmPage() {
         <p style={wordmark}>T4F Cup Pass</p>
         <h1 style={s.title}>Ready to Play?</h1>
         {state.gameName && (
-          <p style={s.meta}>{state.gameName}{state.teamName ? ` · ${state.teamName}` : ''}</p>
+          <p style={s.meta}>{state.gameName}</p>
         )}
       </div>
 
@@ -64,7 +64,6 @@ export default function StartConfirmPage() {
                 {p.name}
                 {i === 0 && <span style={s.firstBadge}> starts with cup</span>}
               </span>
-              {p.seat && <span style={s.seat}>Seat {p.seat}</span>}
             </li>
           ))}
         </ol>
@@ -125,7 +124,6 @@ const s: Record<string, React.CSSProperties> = {
   item: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: font.md, padding: '0.35rem 0.5rem', borderRadius: radius.sm },
   playerName: { fontWeight: 700 },
   firstBadge: { fontSize: font.xs, fontWeight: 500, color: colors.textMuted, fontStyle: 'italic' },
-  seat: { fontSize: font.sm, color: colors.textMuted },
 
   rulesList: { display: 'flex', flexDirection: 'column', gap: '0.25rem' },
   rule: { fontSize: font.base, color: colors.textSecondary, margin: 0, paddingLeft: '0.25rem' },

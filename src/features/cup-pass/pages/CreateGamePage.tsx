@@ -12,13 +12,12 @@ const MODE_ICONS: Record<GameModeId, string> = {
 
 export default function CreateGamePage() {
   const navigate = useNavigate();
-  const { actions, backendStatus } = useGame();
-  const [gameName, setGameName] = useState('');
-  const [teamName, setTeamName] = useState('');
-  const [selectedMode, setSelectedMode] = useState<GameModeId>('cup_pass');
+  const { state, actions, backendStatus } = useGame();
+  const [gameName, setGameName] = useState(state.gameName ?? '');
+  const [selectedMode, setSelectedMode] = useState<GameModeId>(state.mode ?? 'cup_pass');
 
   async function handleNext() {
-    await actions.setGameInfo(gameName.trim(), teamName.trim(), selectedMode);
+    await actions.setGameInfo(gameName.trim(), '', selectedMode);
     navigate('/seat-order');
   }
 
@@ -40,17 +39,6 @@ export default function CreateGamePage() {
             value={gameName}
             onChange={(e) => setGameName(e.target.value)}
             placeholder="e.g. Tans Cup Pass"
-          />
-          <span style={s.optional}>Optional</span>
-        </label>
-
-        <label style={s.label}>
-          Team playing today
-          <input
-            style={s.input}
-            value={teamName}
-            onChange={(e) => setTeamName(e.target.value)}
-            placeholder="e.g. Blue Jays"
           />
           <span style={s.optional}>Optional</span>
         </label>
