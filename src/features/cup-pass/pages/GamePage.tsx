@@ -4,7 +4,7 @@ import { useGame } from '../lib/gameContext';
 import { rankPlayers, playsInCurrentHalf, outsInCurrentHalf, isHalfComplete } from '../lib/gameLogic';
 import { getMode } from '../lib/modes';
 import { track } from '../lib/analytics';
-import { colors, font, radius, btnBase } from '../lib/theme';
+import { colors, font, radius, btnBase, headerBar } from '../lib/theme';
 import GameStatusHeader from '../lib/GameStatusHeader';
 import type { HitEvent } from '../types';
 
@@ -86,6 +86,7 @@ export default function GamePage() {
   const isPaused = game.isPaused;
   const halfComplete = isHalfComplete(game);
   const boardDisabled = isPaused || halfComplete;
+  const dirLabel = game.rotationDirection === 'left' ? 'Passing left →' : '← Passing right';
   const mode = getMode(state.mode);
 
   function log(event: HitEvent) {
@@ -116,13 +117,19 @@ export default function GamePage() {
 
   return (
     <main style={s.page}>
-      {/* Game status header — shared design with player view */}
+      {/* Branded header bar */}
+      <header style={headerBar}>
+        <span style={{ fontSize: '1.1rem' }}>🏆</span>
+        <span style={s.headerBrand}>Tickets 4 Fans</span>
+        <span style={s.headerSub}>Cup Pass</span>
+      </header>
+
+      {/* Scorebug strip — shared design with player view */}
       <GameStatusHeader
         inningHalf={game.inningHalf}
         inning={game.inning}
         outs={outsInCurrentHalf(game)}
-        gameName={state.gameName}
-        style={{ padding: '0.5rem 0.75rem' }}
+        rightContent={<span style={s.dirLabel}>{dirLabel}</span>}
       />
 
       {/* Game controls */}
@@ -317,6 +324,11 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', flexDirection: 'column', gap: '0.6rem', minHeight: '100dvh', paddingBottom: '1.5rem',
     background: `linear-gradient(180deg, ${colors.pageBg} 0%, #0d1f3c 50%, #0a1628 100%)`,
   },
+
+  // Header
+  headerBrand: { fontSize: font.xs, fontWeight: 800, color: colors.gold, textTransform: 'uppercase', letterSpacing: '0.1em' },
+  headerSub: { fontSize: font.sm, fontWeight: 800, color: colors.cyan, textTransform: 'uppercase', letterSpacing: '0.08em' },
+  dirLabel: { fontSize: font.sm, fontWeight: 700, color: colors.cyan },
 
   // Controls
   controlRow: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap', padding: '0 0.75rem' },
