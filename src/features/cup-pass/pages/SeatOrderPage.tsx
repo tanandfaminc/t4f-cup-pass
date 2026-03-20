@@ -8,10 +8,12 @@ let nextId = 1;
 
 export default function SeatOrderPage() {
   const navigate = useNavigate();
-  const { actions, backendStatus } = useGame();
-  const [players, setPlayers] = useState<Player[]>([]);
+  const { state, actions, backendStatus } = useGame();
+  // Seed from context so navigating back preserves entered names
+  const [players, setPlayers] = useState<Player[]>(() =>
+    state.players.length > 0 ? state.players : [],
+  );
   const [name, setName] = useState('');
-  const [seat, setSeat] = useState('');
   const [nameError, setNameError] = useState('');
 
   function addPlayer() {
@@ -25,9 +27,8 @@ export default function SeatOrderPage() {
       return;
     }
     setNameError('');
-    setPlayers((prev) => [...prev, { id: String(nextId++), name: trimmed, seat: seat.trim() }]);
+    setPlayers((prev) => [...prev, { id: String(nextId++), name: trimmed, seat: '' }]);
     setName('');
-    setSeat('');
   }
 
   function remove(id: string) {
@@ -59,7 +60,7 @@ export default function SeatOrderPage() {
         <p style={s.hint}>Add everyone in seat order. The cup passes down the list.</p>
       </div>
 
-      {/* Add player form — stacked on mobile for more room */}
+      {/* Add player form */}
       <div style={s.addSection}>
         <div style={s.addRow}>
           <input
@@ -68,16 +69,10 @@ export default function SeatOrderPage() {
             value={name}
             onChange={(e) => { setName(e.target.value); if (nameError) setNameError(''); }}
             onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
+            autoFocus
           />
-          <input
-            style={{ ...s.inputSmall, borderColor: colors.border }}
-            placeholder="Seat #"
-            value={seat}
-            onChange={(e) => setSeat(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-          />
+          <button style={s.addBtnInline} onClick={addPlayer}>+ Add</button>
         </div>
-        <button style={s.addBtn} onClick={addPlayer}>+ Add Player</button>
         {nameError && <p style={s.error}>{nameError}</p>}
       </div>
 
@@ -90,10 +85,7 @@ export default function SeatOrderPage() {
         {players.map((p, i) => (
           <li key={p.id} style={s.item}>
             <span style={s.order}>{i + 1}</span>
-            <div style={s.playerInfo}>
-              <span style={s.playerName}>{p.name}</span>
-              {p.seat && <span style={s.seat}>Seat {p.seat}</span>}
-            </div>
+            <span style={s.playerName}>{p.name}</span>
             <div style={s.itemActions}>
               <button style={s.iconBtn} onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
               <button style={s.iconBtn} onClick={() => move(i, 1)} disabled={i === players.length - 1} aria-label="Move down">↓</button>
@@ -129,17 +121,14 @@ const s: Record<string, React.CSSProperties> = {
   addSection: { display: 'flex', flexDirection: 'column', gap: '0.4rem' },
   addRow: { display: 'flex', gap: '0.4rem' },
   input: { padding: '0.7rem 0.75rem', fontSize: font.md, border: `1.5px solid ${colors.border}`, borderRadius: radius.md, minWidth: 0 },
-  inputSmall: { padding: '0.7rem 0.75rem', fontSize: font.md, border: `1.5px solid ${colors.border}`, borderRadius: radius.md, width: '5rem', flexShrink: 0 },
-  addBtn: { ...btnBase, padding: '0.65rem', fontSize: font.base, background: colors.primary, color: colors.white, borderRadius: radius.md, width: '100%' },
+  addBtnInline: { ...btnBase, padding: '0.65rem 1rem', fontSize: font.base, background: colors.primary, color: colors.white, borderRadius: radius.md, flexShrink: 0 },
   error: { fontSize: font.sm, color: colors.negative, margin: 0, fontWeight: 600 },
   emptyHint: { fontSize: font.base, color: colors.textMuted, margin: 0, textAlign: 'center', padding: '1rem 0' },
 
   list: { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 },
   item: { display: 'flex', alignItems: 'center', gap: '0.5rem', background: colors.surface, borderRadius: radius.md, padding: '0.6rem 0.75rem' },
   order: { fontWeight: 800, color: colors.textMuted, minWidth: '1.25rem', fontSize: font.base },
-  playerInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.05rem' },
-  playerName: { fontSize: font.md, fontWeight: 700, color: colors.textPrimary },
-  seat: { fontSize: font.sm, fontWeight: 500, color: colors.textMuted },
+  playerName: { flex: 1, fontSize: font.md, fontWeight: 700, color: colors.textPrimary },
   itemActions: { display: 'flex', gap: '0.15rem', flexShrink: 0 },
   iconBtn: { ...btnBase, background: 'none', fontSize: '1rem', padding: '0.25rem 0.35rem', color: colors.textSecondary, borderRadius: radius.sm },
 

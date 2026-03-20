@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { GameContextState, HitEvent, Player, BackendStatus, GameModeId } from '../types';
-import { initGame, logEvent, nextInning, prevInning, endGame, undoLastEvent } from './gameLogic';
+import { initGame, logEvent, nextInning, prevInning, endGame, undoLastEvent, isOut, outsInCurrentHalf, isHalfComplete } from './gameLogic';
 import { getMode, DEFAULT_MODE } from './modes';
 import { saveState, loadState, clearState } from './persistence';
 import { useSupabaseSync } from './supabase/sync';
@@ -46,6 +46,7 @@ function reducer(state: GameContextState, action: Action): GameContextState {
       return { ...state, game: initGame(state.players, getMode(state.mode).startingScore) };
     case 'LOG_EVENT':
       if (!state.game || state.game.isPaused) return state;
+      if (isHalfComplete(state.game)) return state; // half already has 3 outs
       return { ...state, game: logEvent(state.game, state.players, action.event) };
     case 'NEXT_INNING':
       if (!state.game) return state;
@@ -171,7 +172,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (!requireHost('setGameInfo')) return;
       track('game_create_started');
       dispatch({ type: 'SET_GAME_INFO', gameName, teamName, mode });
-      const result = await sync.syncCreateGame(gameName, teamName);
+      const result = await sync.syncCreateGame(gameName, teamName, mode);
       if (result.dbGameId && result.publicCode) {
         dispatch({ type: '_SET_DB_IDS', dbGameId: result.dbGameId, publicCode: result.publicCode });
         track('game_created', { game_code: result.publicCode });
@@ -202,11 +203,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const logEventAction = useCallback(
     async (event: HitEvent) => {
       if (!requireHost('logEvent')) return;
+      // Block submissions in a completed half-inning (3 outs already recorded)
+      if (state.game && isHalfComplete(state.game)) return;
       // Rapid submission guard — block if already processing
       if (submittingRef.current) return;
       submittingRef.current = true;
       try {
         const preState = state;
+        // Detect if this event will trigger automatic half-inning advancement
+        // (3rd out in the current half) so we can sync the inning change to Supabase.
+        const willAutoAdvance = preState.game
+          ? isOut(event) && outsInCurrentHalf(preState.game) + 1 >= 3
+          : false;
         dispatch({ type: 'LOG_EVENT', event });
         track('result_submitted', {
           result_type: event,
@@ -217,6 +225,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         if (result.eventDbId) {
           const eventIndex = preState.game ? preState.game.history.length : 0;
           dispatch({ type: '_SET_EVENT_DB_ID', eventIndex, dbId: result.eventDbId });
+        }
+        // Sync the automatic inning advancement to Supabase if it happened
+        if (willAutoAdvance && preState.game) {
+          await sync.syncNextInning(preState.game.inning);
         }
       } finally {
         submittingRef.current = false;
@@ -275,7 +287,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const rematch = useCallback(async () => {
     if (!requireHost('rematch')) return;
     dispatch({ type: 'REMATCH' });
-    const result = await sync.syncCreateGame(state.gameName, state.teamName);
+    const result = await sync.syncCreateGame(state.gameName, state.teamName, state.mode);
     if (result.dbGameId && result.publicCode) {
       dispatch({ type: '_SET_DB_IDS', dbGameId: result.dbGameId, publicCode: result.publicCode });
       const pResult = await sync.syncSetPlayers(state.players);

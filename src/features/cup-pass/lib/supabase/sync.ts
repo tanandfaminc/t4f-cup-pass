@@ -11,8 +11,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './client';
 import * as repo from './repository';
-import type { ActiveGame, GameContextState, Player, PlayEvent, BackendStatus, HitEvent } from '../../types';
+import type { ActiveGame, GameContextState, Player, PlayEvent, BackendStatus, HitEvent, GameModeId } from '../../types';
 import { SCORE_MAP } from '../scoring';
+import { deriveInningStatesFromEvents } from '../gameLogic';
+import { DEFAULT_MODE } from '../modes';
 
 export interface SyncResult {
   skipped?: boolean;
@@ -37,6 +39,7 @@ export function useSupabaseSync() {
     async (
       gameName: string,
       teamName: string,
+      mode?: string,
     ): Promise<{ dbGameId?: string; publicCode?: string } & SyncResult> => {
       if (!isSupabaseConfigured()) return { skipped: true };
       setBackendStatus('saving');
@@ -44,6 +47,7 @@ export function useSupabaseSync() {
       const { data, error } = await repo.createGame({
         game_name: gameName,
         team_name: teamName,
+        mode,
       });
       if (error || !data) {
         setBackendStatus('error');
@@ -171,8 +175,9 @@ export function useSupabaseSync() {
         return { error: evErr };
       }
 
-      // Update game counters
-      const nextIndex = (game.currentPlayerIndex + 1) % state.players.length;
+      // Update game counters — use actual rotation direction (not always +1)
+      const step = game.rotationDirection === 'left' ? 1 : -1;
+      const nextIndex = (game.currentPlayerIndex + step + state.players.length) % state.players.length;
       await repo.updateGame(gameId, {
         current_holder_index: nextIndex,
         event_count: eventNumber,
@@ -414,7 +419,10 @@ export function useSupabaseSync() {
         dbToLocal.set(p.dbId!, p.id);
       }
 
-      const history: PlayEvent[] = events.map((ev) => {
+      // Derive correct inningHalf for each event by replaying out logic
+      const { positions, final: derivedFinal } = deriveInningStatesFromEvents(events, players.length);
+
+      const history: PlayEvent[] = events.map((ev, i) => {
         const localId = dbToLocal.get(ev.holder_player_id) ?? '';
         scores[localId] = (scores[localId] ?? 0) + ev.score_delta;
         return {
@@ -422,7 +430,7 @@ export function useSupabaseSync() {
           event: ev.result_type as HitEvent,
           delta: ev.score_delta,
           inning: ev.inning_number,
-          inningHalf: 'top' as const,
+          inningHalf: positions[i]?.inningHalf ?? 'top',
           dbId: ev.id,
         };
       });
@@ -455,15 +463,16 @@ export function useSupabaseSync() {
         players,
         game: {
           scores: eventScores,
-          currentPlayerIndex: gameRow.current_holder_index,
-          inning: gameRow.inning_number,
-          inningHalf: 'top' as const,
+          currentPlayerIndex: derivedFinal.currentPlayerIndex,
+          inning: derivedFinal.inning,
+          inningHalf: derivedFinal.inningHalf,
           history,
           isFinished,
           isPaused,
-          rotationDirection: 'left',
+          rotationDirection: derivedFinal.rotationDirection,
           reverseEachInning: true,
         },
+        mode: (gameRow.mode as GameModeId) ?? DEFAULT_MODE,
         dbGameId: gameRow.id,
         publicCode: gameRow.public_code,
         role: 'host',

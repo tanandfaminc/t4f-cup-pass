@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
-import { rankPlayers, playsInCurrentHalf } from '../lib/gameLogic';
+import { rankPlayers, playsInCurrentHalf, outsInCurrentHalf, isHalfComplete } from '../lib/gameLogic';
 import { getMode } from '../lib/modes';
 import { track } from '../lib/analytics';
 import { colors, font, radius, btnBase, wordmark } from '../lib/theme';
@@ -38,9 +38,21 @@ function scoreDisplay(score: number): string {
 
 export default function GamePage() {
   const navigate = useNavigate();
-  const { state, actions } = useGame();
+  const { state, dispatch, actions } = useGame();
   const [showHistory, setShowHistory] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Guard: if there's no active game, bail out to home
+  if (!state.game) {
+    return (
+      <main style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', gap: '1rem', padding: '1.5rem' }}>
+        <p style={{ fontSize: font.lg, fontWeight: 700, color: colors.textPrimary }}>No active game</p>
+        <button style={{ ...btnBase, padding: '0.75rem 1.5rem', background: colors.primary, color: colors.white, borderRadius: radius.md, fontSize: font.md }} onClick={() => navigate('/')}>
+          Go Home
+        </button>
+      </main>
+    );
+  }
 
   const handleShare = useCallback(() => {
     if (!state.publicCode) return;
@@ -65,6 +77,8 @@ export default function GamePage() {
   const nextPlayer = players[(game.currentPlayerIndex + dirStep + players.length) % players.length];
   const ranked = rankPlayers(state);
   const isPaused = game.isPaused;
+  const halfComplete = isHalfComplete(game);
+  const boardDisabled = isPaused || halfComplete;
   const dirLabel = game.rotationDirection === 'left' ? '← Passing left' : 'Passing right →';
   const mode = getMode(state.mode);
 
@@ -110,8 +124,19 @@ export default function GamePage() {
           <span style={s.inningHalfLabel}>{game.inningHalf === 'top' ? 'Top' : 'Bottom'}</span>
           <span style={s.inningNum}>{game.inning}</span>
         </div>
+        <div style={s.outsBadge}>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              style={{
+                ...s.outDot,
+                background: i < outsInCurrentHalf(game) ? '#c62828' : '#ddd',
+              }}
+            />
+          ))}
+          <span style={s.outsLabel}>Outs</span>
+        </div>
         <span style={s.dirLabel}>{dirLabel}</span>
-        <div style={s.playsCount}>{game.history.length} plays</div>
       </div>
 
       {/* Game controls */}
@@ -187,9 +212,9 @@ export default function GamePage() {
         {EVENTS.map(({ event, label, delta }) => (
           <button
             key={event}
-            style={{ ...s.eventBtn, background: eventColor(delta), opacity: isPaused ? 0.4 : 1 }}
+            style={{ ...s.eventBtn, background: eventColor(delta), opacity: boardDisabled ? 0.3 : 1 }}
             onClick={() => log(event)}
-            disabled={isPaused}
+            disabled={boardDisabled}
           >
             <span style={s.eventLabel}>{label}</span>
             <span style={s.eventDelta}>{delta > 0 ? `+${delta}` : delta === 0 ? '0' : delta}</span>
@@ -197,10 +222,23 @@ export default function GamePage() {
         ))}
       </section>
 
+      {/* Half-complete notice — shown only when the current half already has 3 outs */}
+      {halfComplete && !isPaused && (
+        <div style={s.halfCompleteNotice}>
+          <span style={s.halfCompleteText}>
+            3 outs recorded — this half-inning is complete. Undo the last play to make changes.
+          </span>
+        </div>
+      )}
+
       {/* Undo + History */}
       <div style={s.undoRow}>
         <button
-          style={{ ...s.undoBtn, opacity: game.history.length === 0 ? 0.3 : 1 }}
+          style={{
+            ...s.undoBtn,
+            ...(halfComplete && game.history.length > 0 ? s.undoBtnProminent : {}),
+            opacity: game.history.length === 0 ? 0.3 : 1,
+          }}
           onClick={() => actions.undo()}
           disabled={game.history.length === 0}
         >
@@ -265,7 +303,20 @@ export default function GamePage() {
         })}
       </section>
 
-      <button style={s.endBtn} onClick={handleEnd}>End Game</button>
+      <div style={s.bottomRow}>
+        <button style={s.endBtn} onClick={handleEnd}>End Game</button>
+        <button
+          style={s.leaveBtn}
+          onClick={() => {
+            if (window.confirm('Leave this game? The game will still be active for other players.')) {
+              dispatch({ type: 'RESET' });
+              navigate('/');
+            }
+          }}
+        >
+          Leave
+        </button>
+      </div>
     </main>
   );
 }
@@ -285,7 +336,9 @@ const s: Record<string, React.CSSProperties> = {
   inningLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' },
   inningNum: { fontSize: font.lg, fontWeight: 800, color: colors.primary },
   dirLabel: { fontSize: font.sm, fontWeight: 700, color: colors.primaryLight },
-  playsCount: { fontSize: font.xs, fontWeight: 600, color: colors.textMuted },
+  outsBadge: { display: 'flex', alignItems: 'center', gap: '0.25rem' },
+  outDot: { width: '0.65rem', height: '0.65rem', borderRadius: '50%', display: 'inline-block' },
+  outsLabel: { fontSize: font.xs, fontWeight: 700, color: colors.textMuted, marginLeft: '0.15rem' },
 
   controlRow: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap' },
   controlBtn: {
@@ -319,8 +372,15 @@ const s: Record<string, React.CSSProperties> = {
   eventLabel: { fontSize: font.base, fontWeight: 700 },
   eventDelta: { fontSize: font.sm, opacity: 0.85 },
 
+  halfCompleteNotice: {
+    background: colors.infoBg, border: `1px solid ${colors.accent}40`,
+    borderRadius: radius.md, padding: '0.5rem 0.75rem', textAlign: 'center' as const,
+  },
+  halfCompleteText: { fontSize: font.sm, fontWeight: 600, color: colors.primaryLight },
+
   undoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   undoBtn: { ...btnBase, fontSize: font.sm, padding: '0.4rem 0.75rem', background: colors.surface, border: `1px solid ${colors.border}`, color: colors.textSecondary, borderRadius: radius.sm },
+  undoBtnProminent: { background: colors.primary, color: colors.white, border: 'none', padding: '0.55rem 1.1rem', fontSize: font.md },
   historyToggle: { ...btnBase, fontSize: font.sm, padding: '0.4rem 0.75rem', background: 'none', border: `1px solid ${colors.border}`, color: colors.primary, borderRadius: radius.sm },
 
   historyPanel: { background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: radius.md, padding: '0.5rem', maxHeight: '200px', overflowY: 'auto' },
@@ -340,7 +400,7 @@ const s: Record<string, React.CSSProperties> = {
   nextBadge: { fontSize: font.xs, color: colors.textMuted, fontWeight: 500, fontStyle: 'italic' },
   scoreSeat: { fontSize: font.xs, color: colors.textMuted },
   scoreVal: { fontSize: font.md, fontWeight: 700 },
-  endBtn: { ...btnBase, padding: '0.75rem', fontSize: font.md, background: colors.negative, color: colors.white, borderRadius: radius.md, marginTop: '0.25rem' },
+  endBtn: { ...btnBase, flex: 1, padding: '0.75rem', fontSize: font.md, background: colors.negative, color: colors.white, borderRadius: radius.md },
 
   prevHalfRow: { display: 'flex', alignItems: 'center', gap: '0.5rem' },
   prevHalfBtn: {
@@ -349,4 +409,7 @@ const s: Record<string, React.CSSProperties> = {
     color: colors.textSecondary, borderRadius: radius.sm,
   },
   prevHalfHint: { fontSize: font.xs, color: colors.textMuted },
+
+  bottomRow: { display: 'flex', gap: '0.5rem', alignItems: 'stretch' },
+  leaveBtn: { ...btnBase, padding: '0.75rem 1rem', fontSize: font.sm, background: 'none', color: colors.textMuted, border: `1px solid ${colors.border}`, borderRadius: radius.md },
 };

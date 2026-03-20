@@ -27,11 +27,41 @@ export function initGame(players: Player[], startingScore = 0): ActiveGame {
   };
 }
 
+/**
+ * Returns true if the event counts as an out for half-inning advancement.
+ * Centralised so adding new out types only requires changing this one function.
+ */
+export function isOut(event: HitEvent): boolean {
+  return event === 'out' || event === 'strikeout' || event === 'sacrifice';
+}
+
+/**
+ * Count outs recorded in the current half-inning.
+ * Derived from history — no separate out counter is needed.
+ */
+export function outsInCurrentHalf(game: ActiveGame): number {
+  return game.history.filter(
+    (e) => e.inning === game.inning && e.inningHalf === game.inningHalf && isOut(e.event),
+  ).length;
+}
+
+/**
+ * Returns true when the current half-inning has 3 or more outs recorded.
+ * Used to block new play submissions in completed halves (e.g. after navigating back).
+ */
+export function isHalfComplete(game: ActiveGame): boolean {
+  return outsInCurrentHalf(game) >= 3;
+}
+
 export function logEvent(
   game: ActiveGame,
   players: Player[],
   event: HitEvent,
 ): ActiveGame {
+  // Safety guard: never accept new events in a completed half-inning.
+  // This covers the case where the host navigated back to a prior completed half.
+  if (isHalfComplete(game)) return game;
+
   const player = players[game.currentPlayerIndex];
   const delta = SCORE_MAP[event];
   const entry: PlayEvent = {
@@ -43,12 +73,19 @@ export function logEvent(
   };
   const step = dirStep(game.rotationDirection);
   const nextIndex = (game.currentPlayerIndex + step + players.length) % players.length;
-  return {
+  const updated: ActiveGame = {
     ...game,
     scores: { ...game.scores, [player.id]: game.scores[player.id] + delta },
     currentPlayerIndex: nextIndex,
     history: [...game.history, entry],
   };
+  // Auto-advance to the next half-inning when the 3rd out is reached.
+  // The play event is recorded with the current inning/half before the advance,
+  // so undo (which restores inning from the last event) works correctly for free.
+  if (isOut(event) && outsInCurrentHalf(updated) >= 3) {
+    return nextInning(updated);
+  }
+  return updated;
 }
 
 /**
@@ -140,4 +177,70 @@ export function rankPlayers(state: GameContextState): Array<Player & { score: nu
   return [...state.players]
     .map((p) => ({ ...p, score: state.game!.scores[p.id] ?? 0 }))
     .sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Replay a flat list of event result types to derive the correct inning,
+ * inningHalf, currentPlayerIndex, and rotationDirection at each point.
+ *
+ * The DB stores inning_number per event but NOT inningHalf (no such column).
+ * This function reconstructs it by simulating the same out-counting logic
+ * used in logEvent(), so loaded state exactly mirrors what the host had live.
+ *
+ * Returns:
+ *   positions[i] — { inning, inningHalf } at the time event i was played
+ *   final        — game position after all events (used for ActiveGame fields)
+ */
+export function deriveInningStatesFromEvents(
+  events: Array<{ result_type: string }>,
+  playerCount: number,
+  reverseEachInning = true,
+): {
+  positions: Array<{ inning: number; inningHalf: 'top' | 'bottom' }>;
+  final: {
+    inning: number;
+    inningHalf: 'top' | 'bottom';
+    currentPlayerIndex: number;
+    rotationDirection: RotationDirection;
+  };
+} {
+  let inning = 1;
+  let half: 'top' | 'bottom' = 'top';
+  let outs = 0;
+  let direction: RotationDirection = 'left';
+  let currentIndex = 0;
+
+  const positions: Array<{ inning: number; inningHalf: 'top' | 'bottom' }> = [];
+
+  for (const ev of events) {
+    // Record the position the event was played in (before any advancement),
+    // matching what logEvent() stores in PlayEvent.inning / PlayEvent.inningHalf
+    positions.push({ inning, inningHalf: half });
+
+    // Advance cup (same direction logic as logEvent → dirStep)
+    const step: 1 | -1 = direction === 'left' ? 1 : -1;
+    currentIndex = (currentIndex + step + playerCount) % playerCount;
+
+    // Count outs and advance half when 3 reached (mirrors logEvent auto-advance)
+    if (isOut(ev.result_type as HitEvent)) {
+      outs++;
+      if (outs >= 3) {
+        if (half === 'top') {
+          half = 'bottom';
+        } else {
+          inning++;
+          half = 'top';
+          if (reverseEachInning) {
+            direction = direction === 'left' ? 'right' : 'left';
+          }
+        }
+        outs = 0;
+      }
+    }
+  }
+
+  return {
+    positions,
+    final: { inning, inningHalf: half, currentPlayerIndex: currentIndex, rotationDirection: direction },
+  };
 }
