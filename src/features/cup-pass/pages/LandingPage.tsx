@@ -30,13 +30,13 @@ export default function LandingPage() {
   return (
     <main style={s.page}>
       {/* T4F Branding */}
-      <div style={s.brand}>
+      <a href="https://tickets4fans.ca" style={s.brand} target="_blank" rel="noopener noreferrer">
         <img src="/logo.png" alt="T4F Cup Pass" style={s.logoImg} />
         <div style={s.brandBadge}>
           <span style={s.brandT4f}>Tickets 4 Fans</span>
           <span style={s.brandCup}>Cup Pass</span>
         </div>
-      </div>
+      </a>
 
       <p style={s.subtitle}>A fun baseball game for fans at the ballpark!</p>
 
@@ -90,7 +90,7 @@ const s: Record<string, React.CSSProperties> = {
     minHeight: '100dvh', padding: '1.5rem', gap: '1rem', textAlign: 'center',
     background: `linear-gradient(180deg, #0a1628 0%, #0f2a4a 40%, #0a1628 100%)`,
   },
-  brand: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' },
+  brand: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' },
   logoImg: { width: '160px', height: 'auto', display: 'block', filter: 'drop-shadow(0 4px 12px rgba(0, 212, 255, 0.3))' },
   brandBadge: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' },
   brandT4f: { fontSize: font.xs, fontWeight: 800, color: colors.gold, textTransform: 'uppercase', letterSpacing: '0.15em' },
