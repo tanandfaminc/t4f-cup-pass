@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/gameContext';
 import { rankPlayers } from '../lib/gameLogic';
@@ -44,6 +44,12 @@ export default function EndGamePage() {
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [interest, setInterest] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowModal(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const winner = ranked[0];
 
@@ -125,6 +131,7 @@ export default function EndGamePage() {
       feedback: feedback ?? 'not_provided',
       interest: interest ?? 'not_provided',
     });
+    setShowModal(false);
   }, [feedback, interest]);
 
   const isClassic = mode.id === 'cup_classic';
@@ -200,57 +207,6 @@ export default function EndGamePage() {
           {copied ? 'Copied to clipboard!' : 'Share Results'}
         </button>
 
-        {/* Tickets 4 Fans handoff */}
-        <section style={s.handoffCard}>
-          <p style={s.handoffTitle}>Continue on Tickets 4 Fans</p>
-          {!feedback && (
-            <>
-              <p style={s.handoffPrompt}>Did you like Cup Pass?</p>
-              <div style={s.optionList}>
-                {FEEDBACK_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    style={s.optionBtn}
-                    onClick={() => handleFeedbackSelected(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {feedback && !interest && (
-            <>
-              <p style={s.handoffPrompt}>What do you want from Tickets 4 Fans?</p>
-              <div style={s.optionList}>
-                {INTEREST_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    style={s.optionBtn}
-                    onClick={() => handleInterestSelected(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {interest && (
-            <>
-              <p style={s.handoffPrompt}>Ready to continue?</p>
-              <button style={s.continueBtn} onClick={handleContinueToMainSite}>
-                Continue to Tickets 4 Fans
-              </button>
-            </>
-          )}
-
-          <a href={buildHandoffUrl()} style={s.skipLink} onClick={handleSkipHandoff}>
-            Skip / No thanks
-          </a>
-        </section>
-
         {/* Actions */}
         <div style={s.actions}>
           <button style={s.rematchBtn} onClick={handleRematch}>
@@ -261,6 +217,62 @@ export default function EndGamePage() {
           </button>
         </div>
       </div>
+
+      {/* Tickets 4 Fans handoff modal */}
+      {showModal && (
+        <div style={s.modalOverlay} onClick={handleSkipHandoff}>
+          <div style={s.modalSheet} onClick={(e) => e.stopPropagation()}>
+            <p style={s.handoffTitle}>Continue on Tickets 4 Fans</p>
+
+            {!feedback && (
+              <>
+                <p style={s.handoffPrompt}>Did you like Cup Pass?</p>
+                <div style={s.optionList}>
+                  {FEEDBACK_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      style={s.optionBtn}
+                      onClick={() => handleFeedbackSelected(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {feedback && !interest && (
+              <>
+                <p style={s.handoffPrompt}>What do you want from Tickets 4 Fans?</p>
+                <div style={s.optionList}>
+                  {INTEREST_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      style={s.optionBtn}
+                      onClick={() => handleInterestSelected(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {interest && (
+              <>
+                <p style={s.handoffPrompt}>Ready to continue?</p>
+                <button style={s.continueBtn} onClick={handleContinueToMainSite}>
+                  Continue to Tickets 4 Fans
+                </button>
+              </>
+            )}
+
+            <button style={s.skipBtn} onClick={handleSkipHandoff}>
+              Skip / No thanks
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -359,12 +371,34 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: radius.md,
     border: `1px solid ${colors.borderCyan}`,
   },
-  skipLink: {
+  modalOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0, 0, 0, 0.65)',
+    display: 'flex',
+    alignItems: 'flex-end',
+    zIndex: 100,
+  },
+  modalSheet: {
+    background: `linear-gradient(180deg, #0f2a4a 0%, #0a1628 100%)`,
+    border: `1px solid ${colors.border}`,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: '1.5rem 1rem 2rem',
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  },
+  skipBtn: {
+    ...btnBase,
+    background: 'none',
     color: colors.textMuted,
     fontSize: font.sm,
     textDecoration: 'underline',
     textUnderlineOffset: '0.2rem',
     alignSelf: 'flex-start',
+    padding: '0.25rem 0',
   },
 
   actions: { marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.25rem' },
