@@ -19,12 +19,13 @@ const EVENTS: Array<{ event: HitEvent; label: string; delta: number }> = [
   { event: 'error',       label: 'Error',    delta: 0 },
   { event: 'out',         label: 'Out',      delta: -1 },
   { event: 'strikeout',   label: 'K',        delta: -2 },
+  { event: 'double_play', label: 'DP',       delta: -2 },
 ];
 
 const EVENT_LABELS: Record<string, string> = {
   home_run: 'Home Run', triple: 'Triple', double: 'Double', single: 'Single',
   walk: 'Walk', hit_by_pitch: 'HBP', sacrifice: 'Sac', error: 'Error',
-  out: 'Out', strikeout: 'K',
+  out: 'Out', strikeout: 'K', double_play: 'DP',
 };
 
 function eventBtnBg(delta: number): string {

@@ -9,6 +9,7 @@ export const SCORE_MAP: Record<HitEvent, number> = {
   hit_by_pitch: 1,
   out: -1,
   strikeout: -2,
+  double_play: -2,
   error: 0,
   sacrifice: 0,
 };

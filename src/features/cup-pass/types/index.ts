@@ -9,6 +9,7 @@ export type HitEvent =
   | 'hit_by_pitch'
   | 'out'
   | 'strikeout'
+  | 'double_play'
   | 'error'
   | 'sacrifice';
 
