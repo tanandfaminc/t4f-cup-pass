@@ -19,12 +19,13 @@ const EVENTS: Array<{ event: HitEvent; label: string; delta: number }> = [
   { event: 'error',       label: 'Error',    delta: 0 },
   { event: 'out',         label: 'Out',      delta: -1 },
   { event: 'strikeout',   label: 'K',        delta: -2 },
+  { event: 'double_play', label: 'DP',       delta: -2 },
 ];
 
 const EVENT_LABELS: Record<string, string> = {
   home_run: 'Home Run', triple: 'Triple', double: 'Double', single: 'Single',
   walk: 'Walk', hit_by_pitch: 'HBP', sacrifice: 'Sac', error: 'Error',
-  out: 'Out', strikeout: 'K',
+  out: 'Out', strikeout: 'K', double_play: 'DP',
 };
 
 function eventBtnBg(delta: number): string {
@@ -86,6 +87,7 @@ export default function GamePage() {
   const isPaused = game.isPaused;
   const halfComplete = isHalfComplete(game);
   const boardDisabled = isPaused || halfComplete;
+  const currentOuts = outsInCurrentHalf(game);
   const dirLabel = game.rotationDirection === 'left' ? 'Passing left →' : '← Passing right';
   const mode = getMode(state.mode);
 
@@ -201,22 +203,25 @@ export default function GamePage() {
 
       {/* Event buttons */}
       <section style={s.eventGrid}>
-        {EVENTS.map(({ event, label, delta }) => (
+        {EVENTS.map(({ event, label, delta }) => {
+          const btnDisabled = boardDisabled || (event === 'double_play' && currentOuts >= 2);
+          return (
           <button
             key={event}
             style={{
               ...s.eventBtn,
               background: eventBtnBg(delta),
-              opacity: boardDisabled ? 0.3 : 1,
+              opacity: btnDisabled ? 0.3 : 1,
               border: delta > 0 ? `1px solid rgba(34, 197, 94, 0.3)` : delta < 0 ? `1px solid rgba(239, 68, 68, 0.3)` : `1px solid rgba(255,255,255,0.1)`,
             }}
             onClick={() => log(event)}
-            disabled={boardDisabled}
+            disabled={btnDisabled}
           >
             <span style={s.eventLabel}>{label}</span>
             <span style={s.eventDelta}>{delta > 0 ? `+${delta}` : delta === 0 ? '0' : delta}</span>
           </button>
-        ))}
+          );
+        })}
       </section>
 
       {/* Half-complete notice */}

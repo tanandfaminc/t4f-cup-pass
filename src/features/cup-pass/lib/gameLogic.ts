@@ -28,11 +28,17 @@ export function initGame(players: Player[], startingScore = 0): ActiveGame {
 }
 
 /**
- * Returns true if the event counts as an out for half-inning advancement.
+ * How many outs an event contributes (double_play = 2, single-out events = 1, else 0).
  * Centralised so adding new out types only requires changing this one function.
  */
+export function outWeight(event: HitEvent): number {
+  if (event === 'double_play') return 2;
+  if (event === 'out' || event === 'strikeout' || event === 'sacrifice') return 1;
+  return 0;
+}
+
 export function isOut(event: HitEvent): boolean {
-  return event === 'out' || event === 'strikeout' || event === 'sacrifice';
+  return outWeight(event) > 0;
 }
 
 /**
@@ -40,9 +46,9 @@ export function isOut(event: HitEvent): boolean {
  * Derived from history — no separate out counter is needed.
  */
 export function outsInCurrentHalf(game: ActiveGame): number {
-  return game.history.filter(
-    (e) => e.inning === game.inning && e.inningHalf === game.inningHalf && isOut(e.event),
-  ).length;
+  return game.history
+    .filter((e) => e.inning === game.inning && e.inningHalf === game.inningHalf)
+    .reduce((sum, e) => sum + outWeight(e.event), 0);
 }
 
 /**
@@ -223,7 +229,7 @@ export function deriveInningStatesFromEvents(
 
     // Count outs and advance half when 3 reached (mirrors logEvent auto-advance)
     if (isOut(ev.result_type as HitEvent)) {
-      outs++;
+      outs += outWeight(ev.result_type as HitEvent);
       if (outs >= 3) {
         if (half === 'top') {
           half = 'bottom';
